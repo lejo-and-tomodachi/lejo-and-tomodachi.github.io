@@ -335,7 +335,7 @@ function audioUnlock() {                            // 사용자 동작 안에�
   try { const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start(0); } catch (e) {}
 }
 function audioRebuild() {                           // 소리 엔진을 버리고 새로(아이폰 녹화 뒤 지직거림 방지)
-  const old = SND.ctx; SND.ctx = null; SND.bgmOn = false; clearInterval(SND.bgmTimer); VQ.length = 0; SND.unlocked = false;
+  const old = SND.ctx; SND.ctx = null; SND.autoSusp = false; SND.bgmOn = false; clearInterval(SND.bgmTimer); VQ.length = 0; SND.unlocked = false;
   try { old.onstatechange = null; old.close(); } catch (e) {}
 }
 function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
@@ -351,7 +351,7 @@ function audioInit() {                              // 사용자 동작(첫 톡�
     ac.onstatechange = () => {                            // iOS: 녹화 시작·전화 등으로 끊기면 다음 터치에서 새로 만들기
       if (ac !== SND.ctx) return;
       if (ac.state === 'interrupted') SND.rebuild = true;
-      else if (ac.state === 'suspended' && SND.want && SND.unlocked && !document.hidden) ac.resume().catch(() => { SND.rebuild = true; });
+      else if (ac.state === 'suspended' && !SND.autoSusp && SND.want && SND.unlocked && !document.hidden) ac.resume().catch(() => { SND.rebuild = true; });
     };
     const comp = ac.createDynamicsCompressor();           // 겹쳐도 귀 아프지 않게
     comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.01; comp.release.value = 0.25;
@@ -369,6 +369,8 @@ function audioInit() {                              // 사용자 동작(첫 톡�
 function sndReady() { return SND.want && SND.ctx && (SND.ctx.state === 'running' || SND.unlocked) && SND.ctx.state !== 'closed' && !document.hidden && !FREEZE; }
 const VQ = [];                                      // 예약된 소리들 [시작, 끝] (소리 시계)
 function voice(t, dur) {                            // 같은 순간에 겹쳐 나는 소리 개수 제한
+  if (SND.autoSusp) { SND.autoSusp = false; SND.ctx.resume().catch(() => {}); }
+  SND.busyUntil = Math.max(SND.busyUntil || 0, t + dur);
   const now = SND.ctx.currentTime;
   for (let i = VQ.length - 1; i >= 0; i--) if (VQ[i][1] < now) VQ.splice(i, 1);
   let n = 0; for (const [a, b] of VQ) if (a < t + dur && b > t) n++;
@@ -536,6 +538,11 @@ function bgmRender() {
 }
 function bgmElPlay() { if (BGMX.el && BGMX.ok) { const pr = BGMX.el.play(); if (pr && pr.catch) pr.catch(() => {}); } }
 function bgmElPause() { if (BGMX.el) try { BGMX.el.pause(); } catch (e) {} }
+// 효과음이 없을 땐 소리 엔진을 잠깐 쉬게 해요 — 아이폰 화면 녹화 때 실시간 소리 엔진이 켜져 있으면 전체 소리가 지이잉 끊겨요
+setInterval(() => {
+  const ac = SND.ctx; if (!ac || !BGMX.el || !BGMX.ok || ac.state !== 'running') return;
+  if (ac.currentTime > (SND.busyUntil || 0) + 0.6) { SND.autoSusp = true; ac.suspend().catch(() => { SND.autoSusp = false; }); }
+}, 400);
 function bgmStart() {
   if (!SND.ctx || SND.bgmOn) return;
   SND.bgmOn = true; SND.bgmT = 0;
