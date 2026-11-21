@@ -348,7 +348,7 @@ function audioInit() {                              // 사용자 동작(첫 톡�
   if (SND.ctx && (SND.rebuild || SND.ctx.state === 'closed')) audioRebuild();
   if (SND.ctx) { audioUnlock(); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  try { if (navigator.audioSession && !NOSESSION) navigator.audioSession.type = 'playback'; } catch (e) {}   // 아이폰: 음악 재생 모드(녹화·무음 스위치에 강하게)
+  try { if (navigator.audioSession && QS.has('session')) navigator.audioSession.type = 'playback'; } catch (e) {}   // 기본은 건드리지 않아요(녹화에 소리가 안 담기는 문제)   // 아이폰: 음악 재생 모드(녹화·무음 스위치에 강하게)
   bgmElUnlock();
   try {
     let ac; try { ac = new AC(FORCE_SR ? { latencyHint: 'playback', sampleRate: FORCE_SR } : { latencyHint: 'playback' }); } catch (e) { ac = new AC(); }
