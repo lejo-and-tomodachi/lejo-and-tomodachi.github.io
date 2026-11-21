@@ -55,11 +55,23 @@
     font-size: 11px; color: rgba(255, 200, 230, .45); display: none;
   }
   @media (hover: hover) and (pointer: fine) { #hint { display: block; } }
+  #snd {
+    position: absolute; z-index: 20;
+    top: max(10px, calc(env(safe-area-inset-top) + 6px)); right: max(10px, calc(env(safe-area-inset-right) + 8px));
+    width: 46px; height: 46px; border-radius: 50%; padding: 0; cursor: pointer;
+    border: 2px solid rgba(255, 140, 200, .95); background: rgba(40, 6, 26, .72);
+    box-shadow: 0 0 10px rgba(255, 120, 190, .45);
+    font-size: 21px; line-height: 1; color: #fff; touch-action: manipulation;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #snd:not(.on) { border-color: rgba(255, 140, 200, .7); box-shadow: 0 0 6px rgba(255, 120, 190, .25); }
+  #snd:active { transform: scale(.9); }
 </style>
 </head>
 <body tabindex="-1">
 <div id="stage"><canvas id="cv"></canvas></div>
-<div id="hint">키보드 — J 점프 · W 손 흔들기 · F 날개 · E 윙크 · S 빙글 · H 하트 · G 선물 · N 눈 받아먹기 · C 에취 · M 민트 · K 코하쿠</div>
+<button id="snd" aria-label="소리 켜기">🔇</button>
+<div id="hint">키보드 — J 점프 · W 손 흔들기 · F 날개 · E 윙크 · S 빙글 · H 하트 · G 선물 · N 눈 받아먹기 · C 에취 · M 민트 · K 코하쿠 · V 소리</div>
 <div id="bar" class="off">
   <button class="btn" data-m="jump"  aria-label="점프">⤴<small>점프</small></button>
   <button class="btn" data-m="wave"  aria-label="손 흔들기">👋<small>손</small></button>
@@ -309,6 +321,182 @@ let BG_GD;                                                    // 발밑 빛(점�
 let cellHit, cellR, cellG, cellB, cellL, cellMark, gI, gR, gG, gBl, gHeart, gStar, CH, ringFull, groundFull;
 let atlas, colorCv, colorCtx, colorImg, sky = [];
 
+// ═════════════════════════════════════════════════════════════════════
+//  소리 — Web Audio 로 코드에서 바로 만들어요(파일·라이브러리 없음)
+//  기본은 꺼짐. 켜진 상태는 localStorage 에 기억(안 되면 무시). 첫 터치·클릭·키 뒤에만 소리가 나요
+// ═════════════════════════════════════════════════════════════════════
+const SND = { want: false, ctx: null, master: null, sfx: null, bgm: null, noise: null, voices: 0, MAXV: 7,
+  bgmOn: false, bgmT: 0, bgmI: 0, bgmTimer: 0, duck: 1, snoreT: 0, lastBite: 0 };
+SND.want = true;                                    // 기본은 켜짐 — 사용자가 끈 적이 있으면 꺼진 채로
+try { SND.want = localStorage.getItem('pinkDragonSound') !== 'off'; } catch (e) {}
+function audioUnlock() {                            // 사용자 동작 안에서: 깨우기 + (iOS) 무음 한 번 재생
+  const ac = SND.ctx; SND.unlocked = true;
+  if (ac.state !== 'running' && !document.hidden) ac.resume().catch(() => {});
+  try { const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start(0); } catch (e) {}
+}
+function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
+  if (!SND.want) return;
+  if (SND.ctx) { audioUnlock(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  try {
+    const ac = new AC(); SND.ctx = ac;
+    const comp = ac.createDynamicsCompressor();           // 겹쳐도 귀 아프지 않게
+    comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
+    SND.master = ac.createGain(); SND.master.gain.value = 0.3;
+    SND.sfx = ac.createGain(); SND.sfx.gain.value = 1;
+    SND.bgm = ac.createGain(); SND.bgm.gain.value = 0.0001;
+    SND.sfx.connect(SND.master); SND.bgm.connect(SND.master); SND.master.connect(comp); comp.connect(ac.destination);
+    const nb = ac.createBuffer(1, ac.sampleRate * 1, ac.sampleRate), d = nb.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    SND.noise = nb;
+    audioUnlock();
+    bgmStart();
+  } catch (e) { SND.ctx = null; }
+}
+function sndReady() { return SND.want && SND.ctx && (SND.ctx.state === 'running' || SND.unlocked) && SND.ctx.state !== 'closed' && !document.hidden && !FREEZE; }
+const VQ = [];                                      // 예약된 소리들 [시작, 끝] (소리 시계)
+function voice(t, dur) {                            // 같은 순간에 겹쳐 나는 소리 개수 제한
+  const now = SND.ctx.currentTime;
+  for (let i = VQ.length - 1; i >= 0; i--) if (VQ[i][1] < now) VQ.splice(i, 1);
+  let n = 0; for (const [a, b] of VQ) if (a < t + dur && b > t) n++;
+  if (n >= SND.MAXV) return false;
+  VQ.push([t, t + dur]); SND.voices = VQ.length; return true;
+}
+function outNode(pan) {
+  const ac = SND.ctx;
+  if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; p.connect(SND.sfx); return p; }
+  return SND.sfx;
+}
+// 삑 하나: 높이 f0 → f1, 길이 dur, 크기 vol
+function tone(o) {
+  if (!sndReady()) return;
+  const ac = SND.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.12;
+  if (!voice(t, dur)) return;
+  const osc = ac.createOscillator(), g = ac.createGain();
+  osc.type = o.type || 'square';
+  osc.frequency.setValueAtTime(o.f0, t);
+  if (o.fm) osc.frequency.exponentialRampToValueAtTime(o.fm, t + (o.tm || dur * 0.4));
+  if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + dur);
+  if (o.vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.vib; lg.gain.value = o.vibD || o.f0 * 0.03; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + dur + 0.02); }
+  const v = (o.vol || 0.3) * (o.type === 'square' || o.type === 'sawtooth' || !o.type ? 0.45 : 1);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(v, t + (o.atk || 0.006));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let last = g;
+  if (o.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp, t); if (o.lp1) f.frequency.exponentialRampToValueAtTime(o.lp1, t + dur); g.connect(f); last = f; }
+  if (o.am) {                                     // 떨림(골골)
+    const a = ac.createGain(), l = ac.createOscillator(), lg = ac.createGain();
+    a.gain.value = 0.6; l.frequency.value = o.am; lg.gain.value = 0.4; l.connect(lg); lg.connect(a.gain); l.start(t); l.stop(t + dur + 0.02);
+    last.connect(a); last = a;
+  }
+  osc.connect(g); last.connect(outNode(o.pan));
+  osc.start(t); osc.stop(t + dur + 0.03);
+}
+// 쉭 하나: 걸러진 잡음
+function hiss(o) {
+  if (!sndReady()) return;
+  const ac = SND.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.08;
+  if (!voice(t, dur)) return;
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = SND.noise; f.type = o.ft || 'bandpass'; f.Q.value = o.q || 1.2;
+  f.frequency.setValueAtTime(o.f0 || 1200, t); if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol || 0.2, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(outNode(o.pan));
+  src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+}
+const bell = (f, at = 0, vol = 0.22, dur = 0.55, pan = 0) => { tone({ type: 'sine', f0: f, dur, vol, at, pan }); tone({ type: 'sine', f0: f * 2.76, dur: dur * 0.4, vol: vol * 0.25, at, pan }); };
+// ── 효과음 ──
+const SFX = {
+  jump: () => tone({ type: 'square', f0: 330, f1: 990, dur: 0.16, vol: 0.6 }),                                   // 뿅↑
+  land: () => { tone({ type: 'triangle', f0: 200, f1: 90, dur: 0.07, vol: 0.45 }); hiss({ f0: 2500, dur: 0.03, vol: 0.06 }); },   // 톡
+  heart: () => { bell(1319, 0, 0.2); bell(1760, 0.09, 0.18); },                                                  // 띠링
+  flap: () => { for (let i = 0; i < 4; i++) hiss({ at: i * 0.075, f0: 700 + 200 * (i % 2), f1: 380, dur: 0.06, vol: 0.32, q: 0.8 }); },   // 파닥파닥
+  wink: () => { tone({ type: 'sine', f0: 1760, f1: 2637, dur: 0.09, vol: 0.3 }); tone({ type: 'triangle', f0: 3520, dur: 0.07, vol: 0.1, at: 0.07 }); },
+  spin: () => { tone({ type: 'triangle', f0: 380, fm: 1250, tm: 0.28, f1: 420, dur: 0.55, vol: 0.28, vib: 18, vibD: 40 }); },   // 휘리릭
+  sneezeA: () => tone({ type: 'triangle', f0: 520, f1: 700, dur: 0.38, vol: 0.18, atk: 0.06 }),                 // 에…
+  sneezeB: () => { tone({ type: 'square', f0: 1300, f1: 180, dur: 0.14, vol: 0.55 }); hiss({ ft: 'highpass', f0: 2500, dur: 0.14, vol: 0.12 }); },   // 취!
+  nom: () => { tone({ type: 'triangle', f0: 560, f1: 400, dur: 0.07, vol: 0.3 }); tone({ type: 'triangle', f0: 470, f1: 330, dur: 0.08, vol: 0.26, at: 0.09 }); },   // 냠
+  boxUp: () => tone({ type: 'square', f0: 180, f1: 520, dur: 0.45, vol: 0.38, lp: 1600 }),                      // 상자 쑥
+  pop: () => { hiss({ f0: 1800, f1: 400, dur: 0.09, vol: 0.25, q: 0.7 }); tone({ type: 'sine', f0: 950, f1: 220, dur: 0.1, vol: 0.32 }); },   // 뚜껑 뻥
+  fanfare: () => { [1047, 1319, 1568].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.09, vol: 0.2, at: i * 0.085 })); tone({ type: 'square', f0: 2093, dur: 0.32, vol: 0.2, at: 0.26, vib: 7, vibD: 14 }); },   // 짜잔
+  chomp: () => {                                                                                               // 앙! / 냠!
+    if ((SND.lastBite = 1 - SND.lastBite)) { tone({ type: 'square', f0: 360, f1: 240, dur: 0.07, vol: 0.6 }); hiss({ f0: 1500, dur: 0.04, vol: 0.08 }); }
+    else SFX.nom();
+  },
+  burp: () => tone({ type: 'sawtooth', f0: 120, f1: 72, dur: 0.38, vol: 0.6, lp: 500, lp1: 260, vib: 26, vibD: 10 }),   // 끄억
+  snore: () => tone({ type: 'triangle', f0: 98, f1: 82, dur: 0.9, vol: 0.06, atk: 0.3, lp: 400 }),             // 쿨…
+  wake: () => { tone({ type: 'square', f0: 420, f1: 1500, dur: 0.12, vol: 0.3 }); tone({ type: 'sine', f0: 1800, dur: 0.08, vol: 0.14, at: 0.1 }); },   // 화들짝 뿅
+  tree: () => { [2093, 2637, 3136, 2637, 2349, 3136].forEach((f, i) => bell(f, i * 0.075, 0.13, 0.35)); hiss({ ft: 'highpass', f0: 6000, dur: 0.3, vol: 0.04 }); },   // 딸랑딸랑
+  sleigh: () => {                                                                                              // 방울이 왼 → 오
+    for (let i = 0; i < 24; i++) { const p = i / 23, pan = -0.9 + 1.8 * p, at = i * 0.19 + 0.1 * (i % 2);
+      bell(i % 3 ? 2637 : 3136, at, 0.06 * Math.sin(Math.PI * Math.min(1, p * 1.05)) + 0.015, 0.18, pan); }
+  },
+  meow: cat => {                                                                                               // 먀~ (민트: 낮고 느긋 / 코하쿠: 높고 짧게)
+    const m = cat === MINT, f = (m ? 560 : 840) * (0.94 + Math.random() * 0.12), d = m ? 0.5 : 0.27;
+    tone({ type: 'sawtooth', f0: f * 0.9, fm: f * 1.25, tm: d * 0.3, f1: f * 0.82, dur: d, vol: 0.7, atk: 0.03, lp: 900, lp1: 2200, pan: m ? 0.35 : -0.35 });
+  },
+  purr: cat => tone({ type: 'sawtooth', f0: cat === MINT ? 42 : 50, dur: 1.6, vol: 0.32, atk: 0.15, lp: 260, am: 24, pan: cat === MINT ? 0.35 : -0.35 }),   // 골골
+};
+function sfx(name, arg) { try { if (sndReady()) SFX[name](arg); } catch (e) {} }
+
+// ── 배경음악: 오르골 징글벨(1857년 곡) — 효과음보다 작게, 잠들면 서서히 작아져요 ──
+const N_ = { C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A4: 440, G4: 392, C4: 261.63, F4: 349.23 };
+const JINGLE = [
+  ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['G5', 1], ['C5', 1.5], ['D5', 0.5], ['E5', 4],
+  ['F5', 1], ['F5', 1], ['F5', 1.5], ['F5', 0.5], ['F5', 1], ['E5', 1], ['E5', 1], ['E5', 0.5], ['E5', 0.5], ['E5', 1], ['D5', 1], ['D5', 1], ['E5', 1], ['D5', 2], ['G5', 2],
+  ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['G5', 1], ['C5', 1.5], ['D5', 0.5], ['E5', 4],
+  ['F5', 1], ['F5', 1], ['F5', 1.5], ['F5', 0.5], ['F5', 1], ['E5', 1], ['E5', 1], ['E5', 0.5], ['E5', 0.5], ['G5', 1], ['G5', 1], ['F5', 1], ['D5', 1], ['C5', 4],
+];
+const BEAT = 0.42;
+function musicBox(f, t, vol) {                      // 오르골 한 음: 맑은 사인 + 높은 배음, 빨리 사라짐
+  const ac = SND.ctx;
+  for (const [mul, v, d] of [[1, 1, 1.1], [2, 0.3, 0.5], [3.01, 0.08, 0.25]]) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = f * mul;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g); g.connect(SND.bgm); o.start(t); o.stop(t + d + 0.02);
+  }
+}
+function bgmTick() {
+  const ac = SND.ctx; if (!ac || !SND.bgmOn || (ac.state !== 'running' && !SND.unlocked) || document.hidden) return;
+  if (SND.bgmT < ac.currentTime) SND.bgmT = ac.currentTime + 0.1;
+  while (SND.bgmT < ac.currentTime + 0.4) {
+    const [n, b] = JINGLE[SND.bgmI % JINGLE.length], t = SND.bgmT;
+    musicBox(N_[n] * 2, t, 0.25);                   // 한 옥타브 위 = 오르골
+    if (SND.bgmBeat === undefined) SND.bgmBeat = 0;
+    const beatPos = SND.bgmBeat % 4;
+    if (beatPos === 0 || beatPos === 2) musicBox((SND.bgmI % JINGLE.length) > 25 && (SND.bgmI % JINGLE.length) < 40 ? N_.F4 : N_.C4, t, 0.1);   // 살짝 받침음
+    SND.bgmBeat += b; SND.bgmI++; SND.bgmT += b * BEAT;
+    if (SND.bgmI % JINGLE.length === 0) SND.bgmT += BEAT * 2;     // 한 바퀴 돌면 잠깐 쉬기
+  }
+}
+function bgmStart() {
+  if (!SND.ctx || SND.bgmOn) return;
+  SND.bgmOn = true; SND.bgmT = 0;
+  SND.bgm.gain.cancelScheduledValues(SND.ctx.currentTime);
+  SND.bgm.gain.setTargetAtTime(0.11 * SND.duck, SND.ctx.currentTime, 0.8);
+  clearInterval(SND.bgmTimer); SND.bgmTimer = setInterval(bgmTick, 120);
+}
+function bgmStop() {
+  if (!SND.ctx) return;
+  SND.bgmOn = false; clearInterval(SND.bgmTimer);
+  SND.bgm.gain.setTargetAtTime(0.0001, SND.ctx.currentTime, 0.1);
+}
+function soundTick() {                              // 장면마다: 잠들면 배경음악 작게 + 쿨쿨
+  if (!SND.ctx || !SND.want) return;
+  const d = SLP.on ? 0.25 : 1;
+  if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) SND.bgm.gain.setTargetAtTime(0.11 * d, SND.ctx.currentTime, d < 1 ? 2.5 : 1.2); }
+  if (SLP.on && clock - SLP.t0 > 1 && clock - SND.snoreT > 3.4) { SND.snoreT = clock; sfx('snore'); }
+}
+function setSound(on, user = true) {
+  SND.want = on;
+  if (user) try { localStorage.setItem('pinkDragonSound', on ? 'on' : 'off'); } catch (e) {}
+  const b = document.getElementById('snd');
+  if (b) { b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기'); b.classList.toggle('on', on); }
+  if (on) { if (user) { audioInit(); if (SND.ctx) bgmStart(); } }
+  else if (SND.ctx) { bgmStop(); SND.ctx.suspend().catch(() => {}); SND.unlocked = false; }
+}
+
 function layout() {
   const rect = stage.getBoundingClientRect();
   W = Math.max(50, rect.width); H = Math.max(50, rect.height);
@@ -542,7 +730,7 @@ function drawScene(t, ta) {
   // ── 산타 썰매: 가끔 하늘 위쪽을 왼쪽 → 오른쪽으로 슝 ──
   if (!STILL && t >= T_IDLE) {
     if (ta >= SCN.sleighNext) {
-      SCN.sleighT0 = ta; SCN.sleighNext = ta + 13 + Math.random() * 4;
+      SCN.sleighT0 = ta; SCN.sleighNext = ta + 13 + Math.random() * 4; sfx('sleigh');
     }
     SCN.sleighRow = Math.max(1, Math.min(Math.round(TR * 0.07), rowOf(330) - 3));
     const dur = 4.6, p = (ta - SCN.sleighT0) / dur;
@@ -564,6 +752,7 @@ function drawScene(t, ta) {
 }
 function treeHit(px, py) { const b = SCN.box; return b && px >= b[0] && px <= b[2] && py >= b[1] && py <= b[3]; }
 function treeTap() {
+  sfx('tree');
   SCN.tapT = clock;
   if (SCN.star) emitSparkles(SCN.star[0], SCN.star[1], 12, 520, GOLD_HI, 0.7, 120);
 }
@@ -863,9 +1052,9 @@ function once(name, key) {
 }
 function trigger(name, user = true) {
   if (!built() && !FORCE) return;
-  if (name === 'hearts') { emitHearts(5); }
+  if (name === 'hearts') { emitHearts(5); sfx('heart'); }
   else if (name === 'hat') {                 // 모자 톡: 방울 통통 + 반짝이
-    kickHat(1.5);
+    kickHat(1.5); sfx('wink');
     const pv = STATE.pomView || [HAT_POM[0] + HAT_C[0], HAT_C[1] - HAT_POM[1]];
     emitSparkles(pv[0], pv[1], 9, 430, null, 0.6, 250);
   }
@@ -877,6 +1066,7 @@ function trigger(name, user = true) {
     if (name === 'wave' && isOn('spin')) return;
     if (isOn(name) && name !== 'wink') return;    // 같은 모션이 진행 중이면 그대로
     motions[name] = clock; EV[name] = {}; MPAR[name] = { side: Math.random() < 0.5 ? -1 : 1 };
+    const sn = { jump: 'jump', flap: 'flap', wink: 'wink', spin: 'spin', bspin: 'spin', sneeze: 'sneezeA', gift: 'boxUp' }[name]; if (sn) sfx(sn);
     if (name === 'jump') { landed = false; kickHat(0.7); }
     if (name === 'gift') { lastGift = clock; startGift(); }
   }
@@ -898,6 +1088,7 @@ function emitSparkles(x, y, n, spd, col, life = 0.6, g = 300, spread = Math.PI *
   }
 }
 function emitLanding() {
+  sfx('land');
   for (let i = 0; i < 12; i++) {
     const side = i % 2 ? 1 : -1;
     particles.push({ heart: false, x: 870 + side * (150 + Math.random() * 230), y: 1645, vx: side * (180 + Math.random() * 380), vy: -250 - Math.random() * 450, g: 1500, age: 0, life: 0.45 + Math.random() * 0.3, ph: 0 });
@@ -989,6 +1180,7 @@ function updateGift(dt) {
   GF.hShow += (Math.max(GF.amt, 0) - GF.hShow) * Math.min(1, dt * 10);
 }
 function giftChomp() {                                    // 앙!
+  sfx('chomp');
   GF.amt = Math.max(0, GF.amt - GF.per); GF.cheek = true;
   const m = STATE.mouthView || MO_C;
   emitGrains(m[0], m[1] + 40, 6 + (Math.random() * 6 | 0));
@@ -1025,12 +1217,13 @@ function giftFX() {
     GF.box = easeOutBack(pt / 0.7);
     if (pt > 0.55 && pt < 0.95) { const u = (pt - 0.55) / 0.4; FX.jy += 55 * Math.sin(Math.PI * u); }
     GF.lidS = pt - 0.95;
-    if (pt >= 0.95 && gEv('pop')) { emitSparkles(871, 1400, 12, 620, GOLD_RAY, 0.6, 900, Math.PI * 0.9, -Math.PI / 2); kickHat(0.8); }
+    if (pt >= 0.95 && gEv('pop')) { sfx('pop'); emitSparkles(871, 1400, 12, 620, GOLD_RAY, 0.6, 900, Math.PI * 0.9, -Math.PI / 2); kickHat(0.8); }
     const rise = smooth(0.95, 1.7, pt);
     bc = present(rise);
     GF.steam = smooth(1.5, 2.0, pt);
     FX.happy = smooth(1.6, 1.66, pt);
     if (pt >= 1.6 && gEv('wow')) {
+      sfx('fanfare');
       motions.flap = clock;
       for (let i = 0; i < 2 + (Math.random() * 2 | 0); i++) heartUp();
       for (const v of [STATE.leyeV, STATE.reyeV]) if (v) emitSparkles(v[0], v[1], 5, 300, null, 0.5, 0);
@@ -1063,7 +1256,7 @@ function giftFX() {
   } else if (ph === 'burp') {              // 6. 끄억! ^^ 만족, 사발 반짝 사라짐
     bc = BOWL_DOWN; bs = 1 - easeInOutCubic((pt - 0.5) / 0.4); GF.tw = bump(pt, 0.3, 0.65);
     wN = 1 - easeInOutCubic(pt / 0.4); near = patPos(0); nearTo = [0, CY - 1330, 0];
-    if (pt >= 0.12 && gEv('burp')) {
+    if (pt >= 0.12 && gEv('burp')) { sfx('burp');
       const m = STATE.mouthView || MO_C;
       emitSparkles(m[0], m[1] - 10, 7, 260, null, 0.55, -120, Math.PI * 0.8, -Math.PI / 2);
       kickHat(1);
@@ -1101,7 +1294,7 @@ function computeFX() {
     FX.lift = smooth(0, 0.4, s) * (1 - smooth(1.75, 2.3, s));
     FX.mouthO = Math.max(smooth(0.2, 0.45, s) * (1 - smooth(1.36, 1.48, s)), 0.5 * bump(s, 1.6, 0.24));
     if (s < 1.45) FX.flake = s / 1.45;
-    else if (once('catch', 'nom')) { const m = mouthAt(); emitSparkles(m[0], m[1] - 10, 6, 260, SNOW_B, 0.45, 0); kickHat(0.5); }
+    else if (once('catch', 'nom')) { sfx('nom'); const m = mouthAt(); emitSparkles(m[0], m[1] - 10, 6, 260, SNOW_B, 0.45, 0); kickHat(0.5); }
   }
 
   // 에취: 웅크림(에…) → 에취! 반짝이 팡 → 부르르
@@ -1114,6 +1307,7 @@ function computeFX() {
     FX.eyeClose = smooth(0.3, 0.62, s) * (1 - smooth(1.0, 1.15, s));
     FX.mouthO = Math.max(FX.mouthO, 0.32 * smooth(0.35, 0.6, s) * (1 - smooth(0.66, 0.7, s)), 0.85 * bump(s, 0.7, 0.32));
     if (s >= 0.72 && once('sneeze', 'achoo')) {
+      sfx('sneezeB');
       const m = mouthAt();
       emitSparkles(m[0], m[1] + 25, 20, 780, null, 0.55, 500, Math.PI * 1.3, Math.PI / 2);
       emitSparkles(m[0], m[1] + 25, 6, 500, SNOW_B, 0.5, 300, Math.PI * 0.8, Math.PI / 2);
@@ -1327,6 +1521,7 @@ function sleepFX() {
   }
 }
 function wakeUp() {                               // 자는 중에 톡: 콧방울 퐁!
+  sfx('wake');
   SLP.on = false; lastInput = clock;
   const v = STATE.bubbleV || STATE.mouthView || [800, 880];
   emitSparkles(v[0], v[1], 12, 420, BUBBLE, 0.5, 0); emitSparkles(v[0], v[1], 6, 300, null, 0.45, 0);
@@ -2037,11 +2232,11 @@ function catLandFx(cat) {
 function catGroundV(cat) { return [cat.x + CX, CY - CAT_GROUND]; }
 function catTap(cat) {
   if (cat.mode === 'out' || cat.mode === 'enter') return;
-  catTapIcon(cat); cat.happyT = clock;
+  catTapIcon(cat); cat.happyT = clock; sfx('meow', cat);
 }
 function catPet(cat) {
   if (cat.mode !== 'home') return;
-  catAct(cat, 'purr');
+  catAct(cat, 'purr'); sfx('purr', cat);
   catIcon(cat, 'waves', { life: 2.4 });                                       // 물결 ~ 세 줄 + 작은 하트 몇 개
   for (let i = 0; i < 3; i++) catIcon(cat, 'heart', { sc: 0.45, delay: 0.7 + 0.35 * i, dx: (cat === KOHAKU ? 120 : 20) + 75 * i, dy: (cat === KOHAKU ? 40 : -60) - 40 * i, life: 1.4 });
 }
@@ -2730,6 +2925,7 @@ function frame(dt) {
   if (!FREEZE) clock += dt;
   const t = REF ? T_IDLE + 4 : clock, ta = clock;
   autoMotion();
+  soundTick();
   updateGift(FREEZE ? 0 : dt);
   catUpdate();
   computeFX();
@@ -2885,6 +3081,8 @@ for (const b of document.querySelectorAll('.btn')) {
 const KEYS = { KeyJ: 'jump', KeyW: 'wave', KeyF: 'flap', KeyE: 'wink', KeyS: 'spin', KeyH: 'hearts', KeyG: 'gift', KeyN: 'catch', KeyC: 'sneeze' };
 window.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;            // Cmd+W 같은 브라우저 단축키는 건드리지 않기
+  audioInit();                                                  // 첫 키: 소리 시작(이 키의 모션 소리도 같이)
+  if (e.code === 'KeyV') { e.preventDefault(); if (!e.repeat) setSound(!SND.want); return; }   // v 소리 켜기/끄기
   if (e.code === 'KeyM' || e.code === 'KeyK') {                // m 민트 · k 코하쿠 쓰다듬기
     e.preventDefault(); if (!e.repeat && !noteInput()) catPet(e.code === 'KeyM' ? MINT : KOHAKU); return;
   }
@@ -2902,6 +3100,20 @@ grabFocus();
 window.addEventListener('load', grabFocus);
 window.addEventListener('pageshow', grabFocus);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) grabFocus(); });
+// 소리 버튼 · 첫 동작에서 소리 준비 · 다른 탭이면 멈춤
+{
+  const sb = document.getElementById('snd');
+  // 아직 소리가 안 난 상태에서 🔊 를 처음 누르면 '끄기'가 아니라 그대로 소리 시작
+  window.addEventListener('pointerdown', e => { SND.btnFirst = e.target === sb && SND.want && !SND.unlocked; }, true);
+  sb.addEventListener('pointerdown', e => { e.stopPropagation(); });
+  sb.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (SND.btnFirst) { SND.btnFirst = false; return; } setSound(!SND.want); });
+  setSound(SND.want, false);                         // 열 때는 버튼 모양만 — 소리는 첫 톡·클릭·키에서 시작
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, audioInit, true);
+  document.addEventListener('visibilitychange', () => {
+    if (!SND.ctx) return;
+    if (document.hidden) SND.ctx.suspend().catch(() => {}); else if (SND.want && SND.unlocked) SND.ctx.resume().catch(() => {});
+  });
+}
 // 확대·스크롤·당겨서 새로고침 막기
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault());
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
