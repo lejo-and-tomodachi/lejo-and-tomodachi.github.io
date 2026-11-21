@@ -344,7 +344,8 @@ function audioRebuild() {                           // 소리 엔진을 버리�
 const NOSFX = QS.has('nosfx'), FORCE_SR = parseFloat(QS.get('sr')) || 0, NOSESSION = QS.has('nosession');   // 소리 시험용 주소 옵션
 function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
   if (!SND.want) return;
-  if (NOSFX) { bgmElUnlock(); SND.bgmOn = true; SND.duck = 1; bgmElPlay(); return; }   // 시험: 실시간 소리 엔진 없이 배경음악만
+  if (NOSFX) { bgmElUnlock(); SND.bgmOn = true; SND.duck = 1; bgmElPlay(); return; }
+  if (FILEMODE) { fileAudioInit(); return; }   // 시험: 실시간 소리 엔진 없이 배경음악만
   if (SND.ctx && (SND.rebuild || SND.ctx.state === 'closed')) audioRebuild();
   if (SND.ctx) { audioUnlock(); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -371,9 +372,10 @@ function audioInit() {                              // 사용자 동작(첫 톡�
     bgmStart();
   } catch (e) { SND.ctx = null; }
 }
-function sndReady() { return SND.want && SND.ctx && (SND.ctx.state === 'running' || SND.unlocked) && SND.ctx.state !== 'closed' && !document.hidden && !FREEZE; }
+function sndReady() { if (OFF) return true; return SND.want && SND.ctx && (SND.ctx.state === 'running' || SND.unlocked) && SND.ctx.state !== 'closed' && !document.hidden && !FREEZE; }
 const VQ = [];                                      // 예약된 소리들 [시작, 끝] (소리 시계)
 function voice(t, dur) {                            // 같은 순간에 겹쳐 나는 소리 개수 제한
+  if (OFF) return true;
   if (SND.autoSusp) { SND.autoSusp = false; SND.ctx.resume().catch(() => {}); }
   SND.busyUntil = Math.max(SND.busyUntil || 0, t + dur);
   const now = SND.ctx.currentTime;
@@ -458,7 +460,76 @@ const SFX = {
   },
   purr: cat => { for (let i = 0; i < 12; i++) hiss({ ft: 'bandpass', f0: cat === MINT ? 380 : 460, q: 3, dur: 0.07, vol: 0.05, at: i * (cat === MINT ? 0.13 : 0.11), pan: cat === MINT ? 0.35 : -0.35 }); },   // 골골(부드러운 르르르)   // 골골
 };
-function sfx(name, arg) { try { if (sndReady()) SFX[name](arg); } catch (e) {} }
+
+// ═══ 파일 소리 모드(기본) — 실시간 소리 엔진을 아예 안 켜요 ═══
+// 아이폰은 실시간 소리 엔진(AudioContext)이 켜져 있기만 해도 화면 녹화 소리가 지이잉 끊겨서,
+// 효과음도 처음에 한 번씩 소리 파일로 만들어 두고 <audio>로 틀어요. (?webaudio 로 예전 방식)
+const FILEMODE = !QS.has('webaudio') && !NOSFX;
+let OFF = false;                                    // 효과음을 파일로 굽는 중
+const SFXF = {}; let sfxRendering = false, chompFlip = 0;
+const SFX_DUR = { sleigh: 5.6, purr: 1.9, snore: 1.1, spin: 0.7, burp: 0.5, fanfare: 0.7, tree: 0.9, flap: 0.45, boxUp: 0.55 };
+function sfxKeys() {
+  const L = [];
+  for (const k of Object.keys(SFX)) {
+    if (k === 'meow') { for (let v = 0; v < 3; v++) { L.push(['meowM' + v, () => SFX.meow(MINT)]); L.push(['meowK' + v, () => SFX.meow(KOHAKU)]); } }
+    else if (k === 'purr') { L.push(['purrM', () => SFX.purr(MINT)]); L.push(['purrK', () => SFX.purr(KOHAKU)]); }
+    else if (k === 'chomp') { L.push(['chomp0', () => { SND.lastBite = 0; SFX.chomp(); }]); L.push(['chomp1', () => { SND.lastBite = 1; SFX.chomp(); }]); }
+    else L.push([k, () => SFX[k]()]);
+  }
+  return L;
+}
+async function renderSfxAll() {
+  if (sfxRendering || !window.OfflineAudioContext) return; sfxRendering = true;
+  const sr = 22050;
+  for (const [key, fn] of sfxKeys()) {
+    try {
+      const base = key.replace(/[0-9MK]+$/, '').replace(/^(meow|purr|chomp).*/, '$1');
+      const dur = SFX_DUR[base] || 0.8;
+      const oc = new OfflineAudioContext(1, Math.ceil(dur * sr), sr);
+      const comp = oc.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.01; comp.release.value = 0.25;
+      const master = oc.createGain(); master.gain.value = 0.24; const g = oc.createGain();
+      g.connect(master); master.connect(comp); comp.connect(oc.destination);
+      const nb = oc.createBuffer(1, sr, sr), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      const save = { ctx: SND.ctx, sfx: SND.sfx, noise: SND.noise };
+      SND.ctx = oc; SND.sfx = g; SND.noise = nb; OFF = true;
+      try { fn(); } finally { SND.ctx = save.ctx; SND.sfx = save.sfx; SND.noise = save.noise; OFF = false; }
+      const buf = await oc.startRendering(), d = buf.getChannelData(0);
+      let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
+      if (pk > 0 && pk < 0.03) { const k = 0.035 / pk; for (let i = 0; i < d.length; i++) d[i] *= k; }   // 너무 작은 소리(골골·쿨쿨)는 들리게
+      let end = d.length; while (end > 1 && Math.abs(d[end - 1]) < 1e-4) end--;
+      SFXF[key] = wavURL(d.subarray(0, Math.min(d.length, end + 200)), sr);
+    } catch (e) {}
+    await new Promise(z => setTimeout(z, 0));          // 화면이 멈추지 않게 조금씩
+  }
+}
+const APOOL = []; let apoolI = 0;
+function sfxPoolUnlock() {                          // 사용자 동작 안에서: 효과음용 <audio> 6개 깨워 두기
+  if (APOOL.length) return;
+  const silent = wavURL(new Float32Array(441), 22050);
+  for (let i = 0; i < 6; i++) {
+    try { const el = new Audio(); el.preload = 'auto'; el.setAttribute('playsinline', ''); el.playsInline = true; el.src = silent;
+      const pr = el.play(); if (pr && pr.then) pr.then(() => el.pause()).catch(() => {}); APOOL.push(el); } catch (e) {}
+  }
+}
+function playFile(name, arg) {
+  let key = name;
+  if (name === 'meow') key = 'meow' + (arg === MINT ? 'M' : 'K') + ((Math.random() * 3) | 0);
+  else if (name === 'purr') key = 'purr' + (arg === MINT ? 'M' : 'K');
+  else if (name === 'chomp') key = 'chomp' + (chompFlip = 1 - chompFlip);
+  const url = SFXF[key]; if (!url || !APOOL.length) return;
+  let el = null;
+  for (let i = 0; i < APOOL.length; i++) { const e = APOOL[(apoolI + i) % APOOL.length]; if (e.paused || e.ended) { el = e; apoolI = (apoolI + i + 1) % APOOL.length; break; } }
+  if (!el) { el = APOOL[apoolI]; apoolI = (apoolI + 1) % APOOL.length; }
+  try { el.src = url; el.currentTime = 0; const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+}
+function fileAudioInit() {                          // 사용자 동작 안에서
+  bgmElUnlock(); sfxPoolUnlock(); SND.fileReady = true;
+  if (!SND.bgmOn) { SND.bgmOn = true; SND.duck = SLP && SLP.on ? 0.25 : 1; }
+  if (SND.duck === 1) bgmElPlay();
+  renderSfxAll();
+}
+function sfx(name, arg) { try { if (FILEMODE) { if (SND.want && SND.fileReady && !document.hidden && !FREEZE) playFile(name, arg); return; } if (sndReady()) SFX[name](arg); } catch (e) {} }
 
 // ── 배경음악: 오르골 징글벨(1857년 곡) — 효과음보다 작게, 잠들면 서서히 작아져요 ──
 const N_ = { C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A4: 440, G4: 392, C4: 261.63, F4: 349.23 };
@@ -562,6 +633,13 @@ function bgmStop() {
   SND.bgm.gain.setTargetAtTime(0.0001, SND.ctx.currentTime, 0.1);
 }
 function soundTick() {                              // 장면마다: 잠들면 배경음악 작게 + 쿨쿨
+  if (FILEMODE) {
+    if (!SND.fileReady || !SND.want) return;
+    const d = SLP.on ? 0.25 : 1;
+    if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) { if (d < 1) bgmElPause(); else bgmElPlay(); } }
+    if (SLP.on && clock - SLP.t0 > 1 && clock - SND.snoreT > 3.4) { SND.snoreT = clock; sfx('snore'); }
+    return;
+  }
   if (!SND.ctx || !SND.want) return;
   const d = SLP.on ? 0.25 : 1;
   if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) { if (BGMX.el) { if (d < 1) bgmElPause(); else bgmElPlay(); } else SND.bgm.gain.setTargetAtTime(0.11 * d, SND.ctx.currentTime, d < 1 ? 2.5 : 1.2); } }
@@ -573,7 +651,7 @@ function setSound(on, user = true) {
   const b = document.getElementById('snd');
   if (b) { b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기'); b.classList.toggle('on', on); }
   if (on) { if (user) { audioInit(); if (SND.ctx) bgmStart(); } }
-  else if (NOSFX) { SND.bgmOn = false; bgmElPause(); }
+  else if (NOSFX || FILEMODE) { SND.bgmOn = false; bgmElPause(); for (const e of APOOL) try { e.pause(); } catch (x) {} }
   else if (SND.ctx) { bgmStop(); SND.ctx.suspend().catch(() => {}); SND.unlocked = false; }
 }
 
@@ -3243,6 +3321,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) grab
   setSound(SND.want, false);                         // 열 때는 버튼 모양만 — 소리는 첫 톡·클릭·키에서 시작
   for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, audioInit, true);
   document.addEventListener('visibilitychange', () => {
+    if (FILEMODE || NOSFX) { if (document.hidden) bgmElPause(); else if (SND.want && SND.bgmOn && SND.duck === 1) bgmElPlay(); return; }
     if (!SND.ctx) return;
     if (document.hidden) { SND.ctx.suspend().catch(() => {}); bgmElPause(); } else if (SND.want && SND.unlocked) { SND.ctx.resume().catch(() => {}); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); }
   });
