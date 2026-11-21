@@ -630,6 +630,7 @@ function layout() {
   a.fillStyle = '#fff'; a.textAlign = 'center'; a.textBaseline = 'middle';
   a.font = `${Math.round(cwD * 1.55)}px Menlo, Monaco, Consolas, "DejaVu Sans Mono", "Courier New", monospace`;
   for (let g = 1; g < GLYPHS.length; g++) a.fillText(GLYPHS[g], g * cwD + cwD / 2, chD * 0.54);
+  setupRowFont();
   colorCv = document.createElement('canvas'); colorCv.width = TC; colorCv.height = TR;
   colorCtx = colorCv.getContext('2d'); colorImg = colorCtx.createImageData(TC, TR);
   // 화면 전체 별 (넓이에 비례)
@@ -2980,14 +2981,50 @@ function compose(t, ta, yaw, jumpLift) {
 }
 function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) * 1.41; }
 
+// 줄 단위로 그리기: 글자 수천 개를 하나씩 찍지 않고 한 줄을 한 번에 써요(폰에서 훨씬 가볍게 → 녹화 때 소리 안 끊김)
+const MONO = 'Menlo, Monaco, Consolas, "DejaVu Sans Mono", "Courier New", monospace';
+const G_ASCII = Array.from(GLYPHS, ch => ch.charCodeAt(0) < 128);
+let ROW = { ok: false, font: '', ls: '' };
+function setupRowFont() {
+  ROW = { ok: false, font: '', ls: '' };
+  if (QS.has('cellpaint')) return;
+  try {
+    const t = document.createElement('canvas').getContext('2d');
+    const size = Math.round(cwD * 1.55);
+    t.font = `${size}px ${MONO}`;
+    const wM = t.measureText('M').width, wi = t.measureText('i').width, wA = t.measureText('@').width, w10 = t.measureText('MMMMMMMMMM').width;
+    if (!(wM > 0) || Math.abs(wM - wi) > 0.05 * wM || Math.abs(wM - wA) > 0.05 * wM || Math.abs(w10 - 10 * wM) > 0.5) return;   // 고정폭 글꼴이 아니면 예전 방식
+    if ('letterSpacing' in t) { ROW = { ok: true, font: `${size}px ${MONO}`, ls: (cwD - wM).toFixed(3) + 'px' }; }
+    else { ROW = { ok: true, font: `${(size * cwD / wM).toFixed(3)}px ${MONO}`, ls: '' }; }
+  } catch (e) { ROW.ok = false; }
+}
+const PFPS = parseFloat(new URLSearchParams(location.search).get('pfps')) || 0; let lastPaint = 0;
 function paint() {
   ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, cv.width, cv.height);
-  for (let r = 0; r < TR; r++) {
-    const y = y0D + r * chD;
-    for (let c = 0; c < TC; c++) {
-      const g = CH[r * TC + c];
-      if (g) ctx.drawImage(atlas, g * cwD, 0, cwD, chD, x0D + c * cwD, y, cwD, chD);
+  if (ROW.ok) {
+    ctx.fillStyle = '#fff'; ctx.font = ROW.font; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    if (ROW.ls) ctx.letterSpacing = ROW.ls;
+    const sx = ROW.ls ? 0 : 0;
+    for (let r = 0; r < TR; r++) {
+      let line = '', any = false; const base = r * TC, y = y0D + r * chD;
+      for (let c = 0; c < TC; c++) {
+        const g = CH[base + c];
+        if (!g) { line += ' '; continue; }
+        any = true;
+        if (G_ASCII[g]) line += GLYPHS[g];
+        else { line += ' '; ctx.drawImage(atlas, g * cwD, 0, cwD, chD, x0D + c * cwD, y, cwD, chD); }
+      }
+      if (any) ctx.fillText(line, x0D + sx, y + chD * 0.54);
+    }
+    if (ROW.ls) ctx.letterSpacing = '0px';
+  } else {
+    for (let r = 0; r < TR; r++) {
+      const y = y0D + r * chD;
+      for (let c = 0; c < TC; c++) {
+        const g = CH[r * TC + c];
+        if (g) ctx.drawImage(atlas, g * cwD, 0, cwD, chD, x0D + c * cwD, y, cwD, chD);
+      }
     }
   }
   colorCtx.putImageData(colorImg, 0, 0);
@@ -3055,7 +3092,7 @@ function frame(dt) {
   drawGift(t, ta);
   drawCats(t, ta);
   compose(t, ta, yaw, jy);
-  paint();
+  if (!PFPS || performance.now() - lastPaint >= 1000 / PFPS - 2) { lastPaint = performance.now(); paint(); }   // 시험: ?pfps=5 면 화면은 1초에 5번만 그려요
   if (built()) bar.classList.remove('off');
 }
 
