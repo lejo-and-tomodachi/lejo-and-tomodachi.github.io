@@ -341,8 +341,10 @@ function audioRebuild() {                           // 소리 엔진을 버리�
 function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
   if (!SND.want) return;
   if (SND.ctx && (SND.rebuild || SND.ctx.state === 'closed')) audioRebuild();
-  if (SND.ctx) { audioUnlock(); return; }
+  if (SND.ctx) { audioUnlock(); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}   // 아이폰: 음악 재생 모드(녹화·무음 스위치에 강하게)
+  bgmElUnlock();
   try {
     let ac; try { ac = new AC({ latencyHint: 'playback' }); } catch (e) { ac = new AC(); }
     SND.ctx = ac; SND.rebuild = false;
@@ -482,22 +484,75 @@ function bgmTick() {
     if (SND.bgmI % JINGLE.length === 0) SND.bgmT += BEAT * 2;     // 한 바퀴 돌면 잠깐 쉬기
   }
 }
+
+// ── 배경음악을 미리 한 곡(WAV)으로 만들어 <audio>로 틀기 — 아이폰 화면 녹화 때 지이잉(끊김) 방지 ──
+const BGMX = { el: null, url: null, rendering: false, ok: false };
+function wavURL(data, sr) {
+  const n = data.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, data[i])); v.setInt16(44 + i * 2, x * 32767, true); }
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+function bgmElUnlock() {                            // 사용자 동작 안에서: <audio>를 깨워 둬요(나중에 마음대로 틀 수 있게)
+  if (BGMX.el || !window.OfflineAudioContext || !window.Audio || !window.URL || !URL.createObjectURL) return;
+  try {
+    const el = new Audio(); el.loop = true; el.preload = 'auto'; el.setAttribute('playsinline', ''); el.playsInline = true;
+    el.src = wavURL(new Float32Array(2205), 22050);
+    const pr = el.play(); if (pr && pr.catch) pr.catch(() => {});
+    BGMX.el = el; bgmRender();
+  } catch (e) { BGMX.el = null; }
+}
+function bgmRender() {
+  if (BGMX.rendering || BGMX.url) return; BGMX.rendering = true;
+  try {
+    const sr = 22050; let beats = 0; for (const [, b] of JINGLE) beats += b;
+    const loopLen = (beats + 2) * BEAT, total = loopLen + 1.3;
+    const oc = new OfflineAudioContext(1, Math.ceil(total * sr), sr);
+    const box = (f, t, vol) => {
+      for (const [mul, v, d] of [[1, 1, 1.1], [2, 0.3, 0.5], [3.01, 0.08, 0.25]]) {
+        if (f * mul > sr / 2 - 600) continue;
+        const o = oc.createOscillator(), g = oc.createGain(); o.type = 'sine'; o.frequency.value = f * mul;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        o.connect(g); g.connect(oc.destination); o.start(t); o.stop(t + d + 0.02);
+      }
+    };
+    let t = 0.02, beat = 0;
+    JINGLE.forEach(([n, b], i) => {
+      box(N_[n] * 2, t, 0.25);
+      const bp = beat % 4; if (bp === 0 || bp === 2) box((i > 25 && i < 40 ? N_.F4 : N_.C4) * 2, t, 0.05);
+      beat += b; t += b * BEAT;
+    });
+    oc.startRendering().then(buf => {
+      const src = buf.getChannelData(0), L = Math.round(loopLen * sr), out = new Float32Array(L);
+      for (let i = 0; i < src.length; i++) out[i % L] += src[i];      // 끝에서 울리던 소리는 처음으로 겹쳐서 자연스럽게 반복
+      let pk = 0; for (let i = 0; i < L; i++) pk = Math.max(pk, Math.abs(out[i]));
+      const k = pk > 0 ? 0.07 / pk : 1; for (let i = 0; i < L; i++) out[i] *= k;
+      BGMX.url = wavURL(out, sr); BGMX.ok = true;
+      if (BGMX.el) { BGMX.el.src = BGMX.url; if (SND.bgmOn && SND.duck === 1 && !document.hidden) bgmElPlay(); }
+    }).catch(() => { BGMX.el = null; if (SND.bgmOn) { SND.bgmOn = false; bgmStart(); } });
+  } catch (e) { BGMX.el = null; }
+}
+function bgmElPlay() { if (BGMX.el && BGMX.ok) { const pr = BGMX.el.play(); if (pr && pr.catch) pr.catch(() => {}); } }
+function bgmElPause() { if (BGMX.el) try { BGMX.el.pause(); } catch (e) {} }
 function bgmStart() {
   if (!SND.ctx || SND.bgmOn) return;
   SND.bgmOn = true; SND.bgmT = 0;
+  if (BGMX.el) { if (SND.duck === 1 && !document.hidden) bgmElPlay(); return; }
   SND.bgm.gain.cancelScheduledValues(SND.ctx.currentTime);
   SND.bgm.gain.setTargetAtTime(0.11 * SND.duck, SND.ctx.currentTime, 0.8);
   clearInterval(SND.bgmTimer); SND.bgmTimer = setInterval(bgmTick, 120);
 }
 function bgmStop() {
   if (!SND.ctx) return;
-  SND.bgmOn = false; clearInterval(SND.bgmTimer);
+  SND.bgmOn = false; clearInterval(SND.bgmTimer); bgmElPause();
   SND.bgm.gain.setTargetAtTime(0.0001, SND.ctx.currentTime, 0.1);
 }
 function soundTick() {                              // 장면마다: 잠들면 배경음악 작게 + 쿨쿨
   if (!SND.ctx || !SND.want) return;
   const d = SLP.on ? 0.25 : 1;
-  if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) SND.bgm.gain.setTargetAtTime(0.11 * d, SND.ctx.currentTime, d < 1 ? 2.5 : 1.2); }
+  if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) { if (BGMX.el) { if (d < 1) bgmElPause(); else bgmElPlay(); } else SND.bgm.gain.setTargetAtTime(0.11 * d, SND.ctx.currentTime, d < 1 ? 2.5 : 1.2); } }
   if (SLP.on && clock - SLP.t0 > 1 && clock - SND.snoreT > 3.4) { SND.snoreT = clock; sfx('snore'); }
 }
 function setSound(on, user = true) {
@@ -3132,7 +3187,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) grab
   for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, audioInit, true);
   document.addEventListener('visibilitychange', () => {
     if (!SND.ctx) return;
-    if (document.hidden) SND.ctx.suspend().catch(() => {}); else if (SND.want && SND.unlocked) SND.ctx.resume().catch(() => {});
+    if (document.hidden) { SND.ctx.suspend().catch(() => {}); bgmElPause(); } else if (SND.want && SND.unlocked) { SND.ctx.resume().catch(() => {}); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); }
   });
 }
 // 확대·스크롤·당겨서 새로고침 막기
