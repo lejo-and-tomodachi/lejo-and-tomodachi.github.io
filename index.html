@@ -20,8 +20,8 @@
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   }
-  body { position: fixed; inset: 0; outline: none; }
-  :root { --bar: 84px; --b: min(54px, calc((100vw - 24px - 6 * 8px) / 7)); }
+  body { position: fixed; inset: 0; }
+  :root { --bar: 84px; --b: min(54px, calc((100vw - 24px - 5 * 8px) / 6)); }
   #stage {
     position: absolute;
     left: env(safe-area-inset-left); right: env(safe-area-inset-right);
@@ -55,23 +55,11 @@
     font-size: 11px; color: rgba(255, 200, 230, .45); display: none;
   }
   @media (hover: hover) and (pointer: fine) { #hint { display: block; } }
-  #snd {
-    position: absolute; z-index: 20;
-    top: max(10px, calc(env(safe-area-inset-top) + 6px)); right: max(10px, calc(env(safe-area-inset-right) + 8px));
-    width: 46px; height: 46px; border-radius: 50%; padding: 0; cursor: pointer;
-    border: 2px solid rgba(255, 140, 200, .95); background: rgba(40, 6, 26, .72);
-    box-shadow: 0 0 10px rgba(255, 120, 190, .45);
-    font-size: 21px; line-height: 1; color: #fff; touch-action: manipulation;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #snd:not(.on) { border-color: rgba(255, 140, 200, .7); box-shadow: 0 0 6px rgba(255, 120, 190, .25); }
-  #snd:active { transform: scale(.9); }
 </style>
 </head>
-<body tabindex="-1">
+<body>
 <div id="stage"><canvas id="cv"></canvas></div>
-<button id="snd" aria-label="소리 켜기">🔇</button>
-<div id="hint">키보드 — J 점프 · W 손 흔들기 · F 날개 · E 윙크 · S 빙글 · H 하트 · G 선물 · N 눈 받아먹기 · C 에취 · M 민트 · K 코하쿠 · V 소리</div>
+<div id="hint">키보드 — J 점프 · W 손 흔들기 · F 날개 · E 윙크 · S 빙글 · H 하트 · G 선물 · N 눈 받아먹기 · C 에취</div>
 <div id="bar" class="off">
   <button class="btn" data-m="jump"  aria-label="점프">⤴<small>점프</small></button>
   <button class="btn" data-m="wave"  aria-label="손 흔들기">👋<small>손</small></button>
@@ -79,7 +67,6 @@
   <button class="btn" data-m="wink"  aria-label="윙크">😉<small>윙크</small></button>
   <button class="btn" data-m="hearts" aria-label="하트">💗<small>하트</small></button>
   <button class="btn" data-m="gift"  aria-label="선물 열기">🎁<small>선물</small></button>
-  <button class="btn" data-m="catch" aria-label="눈 받아먹기">❄️<small>눈</small></button>
 </div>
 <script>
 'use strict';
@@ -172,16 +159,13 @@ const HAT_TIP = [135, 158], HAT_POM = [142, 150], HAT_POM_R = 42;
 const MO_C = [868, 985], MO_R = [74, 60];
 const HAPPY_PTS = [[618, 814], [639, 797], [660, 779], [681, 797], [702, 814]];
 // 선물 상자 · 고봉밥 (세상 좌표, 캐릭터 앞)
-const BOX_Z = 500, BOX_H = [305, 115, 295], LID_H = [315, 24, 305];
-// 고봉밥 사발 (ref_rice.jpg 처럼 연한 하늘색 둥근 사발 + 테두리 아래 흰 줄)
-const BOWL2 = [270, 232, 270], RICE_DOME = [250, 148, 250];
-const BOWL_LO = C3(0xDC, 0xF0, 0xFF), BOWL_C = C3(0x9E, 0xD0, 0xF4), BOWL_SH = C3(0x82, 0xBA, 0xE6), BOWL_DEEP = C3(0x6A, 0x9E, 0xD2);
-const TONGUE = C3(0xFF, 0x8C, 0xB0), TONGUE_SH = C3(0xE8, 0x6C, 0x94);
+const BOX_Z = 395, BOX_H = [125, 95, 110], LID_H = [135, 22, 122], BOWL_R = [118, 92, 100], RICE_R = [112, 185, 96];
+const BOWL_PY = 1392;                           // 그릇 윗면 높이(사진 y)
 
 // 무늬 표시와 글자
-const MARK_LINE = 1, MARK_PLUS = 2, MARK_MOON = 3, MARK_STRIPE = 4, MARK_CLOUD = 5, MARK_SPIKE = 6, MARK_FANG = 7, MARK_RICE = 8, MARK_RIM = 9, MARK_BRIM = 10;
-const MS = 19;                                   // 칸마다 무늬 칸 수
-const GLYPHS = ' .,:;-=+*#%@♥o/\\()?♪♫Zz!^O|_~Y<>`\'';
+const MARK_LINE = 1, MARK_PLUS = 2, MARK_MOON = 3, MARK_STRIPE = 4, MARK_CLOUD = 5, MARK_SPIKE = 6, MARK_FANG = 7, MARK_RICE = 8, MARK_RIM = 9;
+const MS = 10;                                   // 칸마다 무늬 칸 수
+const GLYPHS = ' .,:;-=+*#%@♥o/\\()';
 const GI = {}; for (let i = 0; i < GLYPHS.length; i++) GI[GLYPHS[i]] = i;
 const RAMP = ' .,:;-=+*#%@', SURFACE_RAMP = '=+*%#@';
 const MARK_STYLE = [   // 위에 있을수록 먼저 — [표시, 글자, 색, 칸 넓이 중 이만큼 걸리면 꽉 채움]
@@ -193,18 +177,8 @@ const MARK_STYLE = [   // 위에 있을수록 먼저 — [표시, 글자, 색, �
   [MARK_CLOUD, '@', C3(255, 255, 255), 0.30],
   [MARK_SPIKE, '@', C3(255, 255, 255), 0.20],
   [MARK_RIM, '@', C3(0xFF, 0xEC, 0x9A), 0.25],
-  [MARK_BRIM, '@', C3(0xE8, 0xF6, 0xFF), 0.25],
-  // 고양이 얼굴: 동공 · 감은 눈/입 선 · 벌린 입 · 코 · 눈동자(민트 연두~청록 / 코하쿠 호박색)
-  [13, '@', C3(0x1E, 0x1A, 0x22), 0.2],
-  [16, '@', C3(0x4A, 0x4E, 0x5C), 0.12],
-  [17, '@', C3(0x8E, 0x46, 0x1E), 0.12],
-  [18, '@', C3(0xC4, 0x50, 0x6A), 0.3],
-  [14, '@', C3(0x58, 0x5C, 0x6A), 0.2],
-  [15, '@', C3(0xFF, 0x96, 0xA8), 0.2],
-  [11, '@', C3(0x9C, 0xE4, 0xBC), 0.22],
-  [12, '@', C3(0xFF, 0xAE, 0x2A), 0.22],
 ];
-const PART_BODY = 1, PART_FACE = 2, PART_ORB = 3, PART_WING = 4, PART_HAT = 5, PART_GIFT = 6, PART_ARM = 7;
+const PART_BODY = 1, PART_FACE = 2, PART_ORB = 3, PART_WING = 4, PART_HAT = 5, PART_GIFT = 6;
 
 // ── 작은 도구 ─────────────────────────────────────────────────────────
 function norm3(v) { const n = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / n, v[1] / n, v[2] / n]; }
@@ -259,10 +233,6 @@ function polyDist(L, x, y) {
   }
   PD.d = Math.sqrt(best); PD.u = (L.cum[bj] + bh * L.seg[bj]) / L.total; PD.dx = bdx; PD.dy = bdy;
 }
-function segD(x, y, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay, h = clamp01(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
-  return Math.hypot(x - ax - h * dx, y - ay - h * dy);
-}
 function inPoly(x, y, poly) {
   let ins = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -283,8 +253,6 @@ const BROW_RAW = chaikin(BROW_PTS, 2), BROW = prepLine(BROW_RAW);
 const BROW_C = BROW_RAW.reduce((a, p) => [a[0] + p[0] / BROW_RAW.length, a[1] + p[1] / BROW_RAW.length], [0, 0]);
 const WINK = prepLine(chaikin(WINK_PTS, 2));
 const HAPPY = prepLine(chaikin(HAPPY_PTS, 1));
-const SLEEP_EYE = prepLine(chaikin([[620, 790], [640, 802], [660, 807], [680, 802], [700, 790]], 2));
-const BUBBLE = C3(0x6E, 0xC4, 0xF4);
 const hash1 = n => { const s = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
 function mm3(A, B) {
   const R = new Array(9);
@@ -308,194 +276,17 @@ const ARM = (() => {
 //  화면·버퍼
 // ═════════════════════════════════════════════════════════════════════
 const QS = new URLSearchParams(location.search);
-if (QS.has('seed')) { let sd = (parseInt(QS.get('seed')) || 1) >>> 0; Math.random = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296); }   // 확인용: 매번 같은 랜덤
 const REF = QS.has('ref');                              // 터미널과 같은 120칸 정면 장면(확인용)
-let FREEZE = QS.has('freeze') || REF;
+const FREEZE = QS.has('freeze') || REF;
 const STILL = REF;
 let S = REF ? 3 : 2;                                    // 칸 하나 = 가로 S x 세로 2S 점
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const stage = document.getElementById('stage');
 let W, H, dpr, TC, TR, cwD, chD, x0D, y0D, NX, NY, dp, PX0, PY0;
 let GX, GY, AX, AY, AZ, ZB, RB, GB, BB, LB, MB, PB;           // 점(샘플) 버퍼
-let BG_GD;                                                    // 발밑 빛(점마다)
+let BG_RA, BG_RR, BG_RG, BG_RB, BG_U, BG_GD;                  // 고리·발밑 빛(점마다)
 let cellHit, cellR, cellG, cellB, cellL, cellMark, gI, gR, gG, gBl, gHeart, gStar, CH, ringFull, groundFull;
 let atlas, colorCv, colorCtx, colorImg, sky = [];
-
-// ═════════════════════════════════════════════════════════════════════
-//  소리 — Web Audio 로 코드에서 바로 만들어요(파일·라이브러리 없음)
-//  기본은 꺼짐. 켜진 상태는 localStorage 에 기억(안 되면 무시). 첫 터치·클릭·키 뒤에만 소리가 나요
-// ═════════════════════════════════════════════════════════════════════
-const SND = { want: false, ctx: null, master: null, sfx: null, bgm: null, noise: null, voices: 0, MAXV: 7,
-  bgmOn: false, bgmT: 0, bgmI: 0, bgmTimer: 0, duck: 1, snoreT: 0, lastBite: 0 };
-SND.want = true;                                    // 기본은 켜짐 — 사용자가 끈 적이 있으면 꺼진 채로
-try { SND.want = localStorage.getItem('pinkDragonSound') !== 'off'; } catch (e) {}
-function audioUnlock() {                            // 사용자 동작 안에서: 깨우기 + (iOS) 무음 한 번 재생
-  const ac = SND.ctx; SND.unlocked = true;
-  if (ac.state !== 'running' && !document.hidden) ac.resume().catch(() => {});
-  try { const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start(0); } catch (e) {}
-}
-function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
-  if (!SND.want) return;
-  if (SND.ctx) { audioUnlock(); return; }
-  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  try {
-    const ac = new AC(); SND.ctx = ac;
-    const comp = ac.createDynamicsCompressor();           // 겹쳐도 귀 아프지 않게
-    comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
-    SND.master = ac.createGain(); SND.master.gain.value = 0.3;
-    SND.sfx = ac.createGain(); SND.sfx.gain.value = 1;
-    SND.bgm = ac.createGain(); SND.bgm.gain.value = 0.0001;
-    SND.sfx.connect(SND.master); SND.bgm.connect(SND.master); SND.master.connect(comp); comp.connect(ac.destination);
-    const nb = ac.createBuffer(1, ac.sampleRate * 1, ac.sampleRate), d = nb.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    SND.noise = nb;
-    audioUnlock();
-    bgmStart();
-  } catch (e) { SND.ctx = null; }
-}
-function sndReady() { return SND.want && SND.ctx && (SND.ctx.state === 'running' || SND.unlocked) && SND.ctx.state !== 'closed' && !document.hidden && !FREEZE; }
-const VQ = [];                                      // 예약된 소리들 [시작, 끝] (소리 시계)
-function voice(t, dur) {                            // 같은 순간에 겹쳐 나는 소리 개수 제한
-  const now = SND.ctx.currentTime;
-  for (let i = VQ.length - 1; i >= 0; i--) if (VQ[i][1] < now) VQ.splice(i, 1);
-  let n = 0; for (const [a, b] of VQ) if (a < t + dur && b > t) n++;
-  if (n >= SND.MAXV) return false;
-  VQ.push([t, t + dur]); SND.voices = VQ.length; return true;
-}
-function outNode(pan) {
-  const ac = SND.ctx;
-  if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; p.connect(SND.sfx); return p; }
-  return SND.sfx;
-}
-// 삑 하나: 높이 f0 → f1, 길이 dur, 크기 vol
-function tone(o) {
-  if (!sndReady()) return;
-  const ac = SND.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.12;
-  if (!voice(t, dur)) return;
-  const osc = ac.createOscillator(), g = ac.createGain();
-  osc.type = o.type || 'square';
-  osc.frequency.setValueAtTime(o.f0, t);
-  if (o.fm) osc.frequency.exponentialRampToValueAtTime(o.fm, t + (o.tm || dur * 0.4));
-  if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + dur);
-  if (o.vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.vib; lg.gain.value = o.vibD || o.f0 * 0.03; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + dur + 0.02); }
-  const v = (o.vol || 0.3) * (o.type === 'square' || o.type === 'sawtooth' || !o.type ? 0.45 : 1);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(v, t + (o.atk || 0.006));
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  let last = g;
-  if (o.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp, t); if (o.lp1) f.frequency.exponentialRampToValueAtTime(o.lp1, t + dur); g.connect(f); last = f; }
-  if (o.am) {                                     // 떨림(골골)
-    const a = ac.createGain(), l = ac.createOscillator(), lg = ac.createGain();
-    a.gain.value = 0.6; l.frequency.value = o.am; lg.gain.value = 0.4; l.connect(lg); lg.connect(a.gain); l.start(t); l.stop(t + dur + 0.02);
-    last.connect(a); last = a;
-  }
-  osc.connect(g); last.connect(outNode(o.pan));
-  osc.start(t); osc.stop(t + dur + 0.03);
-}
-// 쉭 하나: 걸러진 잡음
-function hiss(o) {
-  if (!sndReady()) return;
-  const ac = SND.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.08;
-  if (!voice(t, dur)) return;
-  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-  src.buffer = SND.noise; f.type = o.ft || 'bandpass'; f.Q.value = o.q || 1.2;
-  f.frequency.setValueAtTime(o.f0 || 1200, t); if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol || 0.2, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(f); f.connect(g); g.connect(outNode(o.pan));
-  src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
-}
-const bell = (f, at = 0, vol = 0.22, dur = 0.55, pan = 0) => { tone({ type: 'sine', f0: f, dur, vol, at, pan }); tone({ type: 'sine', f0: f * 2.76, dur: dur * 0.4, vol: vol * 0.25, at, pan }); };
-// ── 효과음 ──
-const SFX = {
-  jump: () => tone({ type: 'square', f0: 330, f1: 990, dur: 0.16, vol: 0.6 }),                                   // 뿅↑
-  land: () => { tone({ type: 'triangle', f0: 200, f1: 90, dur: 0.07, vol: 0.45 }); hiss({ f0: 2500, dur: 0.03, vol: 0.06 }); },   // 톡
-  heart: () => { bell(1319, 0, 0.2); bell(1760, 0.09, 0.18); },                                                  // 띠링
-  flap: () => { for (let i = 0; i < 4; i++) hiss({ at: i * 0.075, f0: 700 + 200 * (i % 2), f1: 380, dur: 0.06, vol: 0.32, q: 0.8 }); },   // 파닥파닥
-  wink: () => { tone({ type: 'sine', f0: 1760, f1: 2637, dur: 0.09, vol: 0.3 }); tone({ type: 'triangle', f0: 3520, dur: 0.07, vol: 0.1, at: 0.07 }); },
-  spin: () => { tone({ type: 'triangle', f0: 380, fm: 1250, tm: 0.28, f1: 420, dur: 0.55, vol: 0.28, vib: 18, vibD: 40 }); },   // 휘리릭
-  sneezeA: () => tone({ type: 'triangle', f0: 520, f1: 700, dur: 0.38, vol: 0.18, atk: 0.06 }),                 // 에…
-  sneezeB: () => { tone({ type: 'square', f0: 1300, f1: 180, dur: 0.14, vol: 0.55 }); hiss({ ft: 'highpass', f0: 2500, dur: 0.14, vol: 0.12 }); },   // 취!
-  nom: () => { tone({ type: 'triangle', f0: 560, f1: 400, dur: 0.07, vol: 0.3 }); tone({ type: 'triangle', f0: 470, f1: 330, dur: 0.08, vol: 0.26, at: 0.09 }); },   // 냠
-  boxUp: () => tone({ type: 'square', f0: 180, f1: 520, dur: 0.45, vol: 0.38, lp: 1600 }),                      // 상자 쑥
-  pop: () => { hiss({ f0: 1800, f1: 400, dur: 0.09, vol: 0.25, q: 0.7 }); tone({ type: 'sine', f0: 950, f1: 220, dur: 0.1, vol: 0.32 }); },   // 뚜껑 뻥
-  fanfare: () => { [1047, 1319, 1568].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.09, vol: 0.2, at: i * 0.085 })); tone({ type: 'square', f0: 2093, dur: 0.32, vol: 0.2, at: 0.26, vib: 7, vibD: 14 }); },   // 짜잔
-  chomp: () => {                                                                                               // 앙! / 냠!
-    if ((SND.lastBite = 1 - SND.lastBite)) { tone({ type: 'square', f0: 360, f1: 240, dur: 0.07, vol: 0.6 }); hiss({ f0: 1500, dur: 0.04, vol: 0.08 }); }
-    else SFX.nom();
-  },
-  burp: () => tone({ type: 'sawtooth', f0: 120, f1: 72, dur: 0.38, vol: 0.6, lp: 500, lp1: 260, vib: 26, vibD: 10 }),   // 끄억
-  snore: () => tone({ type: 'triangle', f0: 98, f1: 82, dur: 0.9, vol: 0.06, atk: 0.3, lp: 400 }),             // 쿨…
-  wake: () => { tone({ type: 'square', f0: 420, f1: 1500, dur: 0.12, vol: 0.3 }); tone({ type: 'sine', f0: 1800, dur: 0.08, vol: 0.14, at: 0.1 }); },   // 화들짝 뿅
-  tree: () => { [2093, 2637, 3136, 2637, 2349, 3136].forEach((f, i) => bell(f, i * 0.075, 0.13, 0.35)); hiss({ ft: 'highpass', f0: 6000, dur: 0.3, vol: 0.04 }); },   // 딸랑딸랑
-  sleigh: () => {                                                                                              // 방울이 왼 → 오
-    for (let i = 0; i < 24; i++) { const p = i / 23, pan = -0.9 + 1.8 * p, at = i * 0.19 + 0.1 * (i % 2);
-      bell(i % 3 ? 2637 : 3136, at, 0.06 * Math.sin(Math.PI * Math.min(1, p * 1.05)) + 0.015, 0.18, pan); }
-  },
-  meow: cat => {                                                                                               // 먀~ (민트: 낮고 느긋 / 코하쿠: 높고 짧게)
-    const m = cat === MINT, f = (m ? 560 : 840) * (0.94 + Math.random() * 0.12), d = m ? 0.5 : 0.27;
-    tone({ type: 'sawtooth', f0: f * 0.9, fm: f * 1.25, tm: d * 0.3, f1: f * 0.82, dur: d, vol: 0.7, atk: 0.03, lp: 900, lp1: 2200, pan: m ? 0.35 : -0.35 });
-  },
-  purr: cat => tone({ type: 'sawtooth', f0: cat === MINT ? 42 : 50, dur: 1.6, vol: 0.32, atk: 0.15, lp: 260, am: 24, pan: cat === MINT ? 0.35 : -0.35 }),   // 골골
-};
-function sfx(name, arg) { try { if (sndReady()) SFX[name](arg); } catch (e) {} }
-
-// ── 배경음악: 오르골 징글벨(1857년 곡) — 효과음보다 작게, 잠들면 서서히 작아져요 ──
-const N_ = { C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A4: 440, G4: 392, C4: 261.63, F4: 349.23 };
-const JINGLE = [
-  ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['G5', 1], ['C5', 1.5], ['D5', 0.5], ['E5', 4],
-  ['F5', 1], ['F5', 1], ['F5', 1.5], ['F5', 0.5], ['F5', 1], ['E5', 1], ['E5', 1], ['E5', 0.5], ['E5', 0.5], ['E5', 1], ['D5', 1], ['D5', 1], ['E5', 1], ['D5', 2], ['G5', 2],
-  ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['E5', 1], ['E5', 2], ['E5', 1], ['G5', 1], ['C5', 1.5], ['D5', 0.5], ['E5', 4],
-  ['F5', 1], ['F5', 1], ['F5', 1.5], ['F5', 0.5], ['F5', 1], ['E5', 1], ['E5', 1], ['E5', 0.5], ['E5', 0.5], ['G5', 1], ['G5', 1], ['F5', 1], ['D5', 1], ['C5', 4],
-];
-const BEAT = 0.42;
-function musicBox(f, t, vol) {                      // 오르골 한 음: 맑은 사인 + 높은 배음, 빨리 사라짐
-  const ac = SND.ctx;
-  for (const [mul, v, d] of [[1, 1, 1.1], [2, 0.3, 0.5], [3.01, 0.08, 0.25]]) {
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = 'sine'; o.frequency.value = f * mul;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    o.connect(g); g.connect(SND.bgm); o.start(t); o.stop(t + d + 0.02);
-  }
-}
-function bgmTick() {
-  const ac = SND.ctx; if (!ac || !SND.bgmOn || (ac.state !== 'running' && !SND.unlocked) || document.hidden) return;
-  if (SND.bgmT < ac.currentTime) SND.bgmT = ac.currentTime + 0.1;
-  while (SND.bgmT < ac.currentTime + 0.4) {
-    const [n, b] = JINGLE[SND.bgmI % JINGLE.length], t = SND.bgmT;
-    musicBox(N_[n] * 2, t, 0.25);                   // 한 옥타브 위 = 오르골
-    if (SND.bgmBeat === undefined) SND.bgmBeat = 0;
-    const beatPos = SND.bgmBeat % 4;
-    if (beatPos === 0 || beatPos === 2) musicBox((SND.bgmI % JINGLE.length) > 25 && (SND.bgmI % JINGLE.length) < 40 ? N_.F4 : N_.C4, t, 0.1);   // 살짝 받침음
-    SND.bgmBeat += b; SND.bgmI++; SND.bgmT += b * BEAT;
-    if (SND.bgmI % JINGLE.length === 0) SND.bgmT += BEAT * 2;     // 한 바퀴 돌면 잠깐 쉬기
-  }
-}
-function bgmStart() {
-  if (!SND.ctx || SND.bgmOn) return;
-  SND.bgmOn = true; SND.bgmT = 0;
-  SND.bgm.gain.cancelScheduledValues(SND.ctx.currentTime);
-  SND.bgm.gain.setTargetAtTime(0.11 * SND.duck, SND.ctx.currentTime, 0.8);
-  clearInterval(SND.bgmTimer); SND.bgmTimer = setInterval(bgmTick, 120);
-}
-function bgmStop() {
-  if (!SND.ctx) return;
-  SND.bgmOn = false; clearInterval(SND.bgmTimer);
-  SND.bgm.gain.setTargetAtTime(0.0001, SND.ctx.currentTime, 0.1);
-}
-function soundTick() {                              // 장면마다: 잠들면 배경음악 작게 + 쿨쿨
-  if (!SND.ctx || !SND.want) return;
-  const d = SLP.on ? 0.25 : 1;
-  if (d !== SND.duck) { SND.duck = d; if (SND.bgmOn) SND.bgm.gain.setTargetAtTime(0.11 * d, SND.ctx.currentTime, d < 1 ? 2.5 : 1.2); }
-  if (SLP.on && clock - SLP.t0 > 1 && clock - SND.snoreT > 3.4) { SND.snoreT = clock; sfx('snore'); }
-}
-function setSound(on, user = true) {
-  SND.want = on;
-  if (user) try { localStorage.setItem('pinkDragonSound', on ? 'on' : 'off'); } catch (e) {}
-  const b = document.getElementById('snd');
-  if (b) { b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기'); b.classList.toggle('on', on); }
-  if (on) { if (user) { audioInit(); if (SND.ctx) bgmStart(); } }
-  else if (SND.ctx) { bgmStop(); SND.ctx.suspend().catch(() => {}); SND.unlocked = false; }
-}
 
 function layout() {
   const rect = stage.getBoundingClientRect();
@@ -506,8 +297,8 @@ function layout() {
     cv.style.width = '960px'; cv.style.height = '960px'; W = H = 960;
     dp = FW / (120 * S); PX0 = CX - FW / 2; PY0 = CY - FW / 2; x0D = 0; y0D = 0;
   } else {
-    // 그림 전체(왼쪽 트리 ~ 오른쪽 사탕 지팡이, 구슬 위 ~ 발밑 빛)가 화면 가운데 꽉 차게
-    const BX0 = -20, BX1 = 1725, BY0 = 60, BY1 = 1800, bw = BX1 - BX0, bh = BY1 - BY0;
+    // 그림 전체(날개 끝 ~ 구슬, 구슬 위 ~ 발밑 빛)가 화면 가운데 꽉 차게
+    const BX0 = 170, BX1 = 1460, BY0 = 60, BY1 = 1700, bw = BX1 - BX0, bh = BY1 - BY0;
     const scale = Math.min(W * 0.97 / bw, H * 0.97 / bh);           // 화면 px / 사진 px
     let K = Math.round(bw * scale / 4.4); K = Math.max(60, Math.min(96, K));   // 그림 폭에 들어가는 칸 수
     cwD = Math.max(4, Math.round(bw * scale / K * dpr)); chD = 2 * cwD;
@@ -526,11 +317,20 @@ function layout() {
   for (let j = 0; j < NY; j++) GY[j] = CY - (PY0 + (j + 0.5) * dp);
   ZB = new Float32Array(n); RB = new Float32Array(n); GB = new Float32Array(n); BB = new Float32Array(n);
   LB = new Float32Array(n); MB = new Int8Array(n); PB = new Int8Array(n);
-  BG_GD = new Float32Array(n);
+  BG_RA = new Float32Array(n); BG_RR = new Float32Array(n); BG_RG = new Float32Array(n); BG_RB = new Float32Array(n);
+  BG_U = new Float32Array(n); BG_GD = new Float32Array(n);
   for (let j = 0; j < NY; j++) {
     const py = PY0 + (j + 0.5) * dp;
     for (let i = 0; i < NX; i++) {
       const px = PX0 + (i + 0.5) * dp, k = j * NX + i;
+      const w = (Math.hypot(px - RING_C[0], py - RING_C[1]) - RING_RAD) / RING_HW;
+      // 고리는 사진 틀(가로 0~1743) 안에서만 — 넓은 화면에서 아래로 늘어지지 않게 끝을 부드럽게
+      BG_RA[k] = smooth(1.2, 0.6, Math.abs(w)) * smooth(-40, 10, px) * smooth(1783, 1733, px);
+      const u = clamp01(px / 1743); BG_U[k] = u;
+      let a = RING_STOPS[0], b = RING_STOPS[RING_STOPS.length - 1];
+      for (let s = 0; s < RING_STOPS.length - 1; s++) if (u >= RING_STOPS[s][0] && u <= RING_STOPS[s + 1][0]) { a = RING_STOPS[s]; b = RING_STOPS[s + 1]; break; }
+      const f = b[0] > a[0] ? (u - a[0]) / (b[0] - a[0]) : 0;
+      BG_RR[k] = a[1][0] + (b[1][0] - a[1][0]) * f; BG_RG[k] = a[1][1] + (b[1][1] - a[1][1]) * f; BG_RB[k] = a[1][2] + (b[1][2] - a[1][2]) * f;
       BG_GD[k] = ((px - GLOW_C[0]) / GLOW_R[0]) ** 4 + ((py - GLOW_C[1]) / (GLOW_R[1] * 2.5)) ** 2;
     }
   }
@@ -538,12 +338,10 @@ function layout() {
   cellHit = new Float32Array(nc); cellR = new Float32Array(nc); cellG = new Float32Array(nc); cellB = new Float32Array(nc);
   cellL = new Float32Array(nc); cellMark = new Uint16Array(nc * MS);
   gI = new Float32Array(nc); gR = new Float32Array(nc); gG = new Float32Array(nc); gBl = new Float32Array(nc);
-  gHeart = new Float32Array(nc); gStar = new Float32Array(nc); gGrain = new Float32Array(nc); CH = new Uint8Array(nc);
+  gHeart = new Float32Array(nc); gStar = new Float32Array(nc); CH = new Uint8Array(nc);
   gSteam = new Float32Array(nc); gSteamD = new Float32Array(nc); gSteamCh = new Uint8Array(nc);
-  gChI = new Float32Array(nc); gChC = new Uint8Array(nc); gChR = new Float32Array(nc); gChG = new Float32Array(nc); gChB = new Float32Array(nc);
-  cellCat = new Uint16Array(nc); cellGift = new Uint16Array(nc); riceMask = new Uint8Array(nc); cellArm = new Uint16Array(nc);
-  ringFull = null; groundFull = null; snowPed = null; snowField = null;
-  sCh = new Uint8Array(nc); sR = new Float32Array(nc); sG = new Float32Array(nc); sB = new Float32Array(nc);
+  cellGift = new Uint16Array(nc); riceMask = new Uint8Array(nc);
+  ringFull = null; groundFull = null; snowPed = null;
   // 글자 모양(흰색) 한 번만 그려 두기
   atlas = document.createElement('canvas'); atlas.width = cwD * GLYPHS.length; atlas.height = chD;
   const a = atlas.getContext('2d');
@@ -563,199 +361,10 @@ function layout() {
     sp: 0.8 + Math.random() * 1.1, ph: Math.random() * 6.283, tint: Math.random(), big: Math.random() < 0.55 });
   flurry = [];
 }
-let cellCat, gChI, gChC, gChR, gChG, gChB, cellArm, gGrain, fallers = [], flurry = [], gSteam, gSteamD, gSteamCh, cellGift, riceMask, snowPed = null;
-// ═════════════════════════════════════════════════════════════════════
-//  크리스마스 풍경 (캐릭터 뒤) — 칸 단위로만 그려서 가벼워요
-//  눈밭 → 트리(왼쪽 뒤) → 장식·전구 → 별 → 선물 상자 → 사탕 지팡이 → 산타 썰매
-// ═════════════════════════════════════════════════════════════════════
-const T_SNOWF = T_RING, T_TREE = T_RING + 0.3, T_DECO = T_RING + 0.95, T_STAR = T_RING + 1.4;
-const TREE = { x: -672, z: -160, base: 1582, h: 1040 };      // 캐릭터 좌표 x(사진 x - 870), 뒤로 z
-const TIERS = [[0.07, 0.40, 212], [0.29, 0.61, 172], [0.50, 0.80, 130], [0.69, 1.0, 86]];   // [아래 h, 위 h, 아래 반폭]
-const TREE_DARK = C3(0x16, 0x58, 0x26), TREE_LIGHT = C3(0x58, 0xC4, 0x58), TRUNK = C3(0x7A, 0x4A, 0x2A);
-const SILVER = C3(0xD8, 0xE2, 0xEE), WARM_W = C3(0xFF, 0xF0, 0xC8), XGREEN = C3(0x3C, 0xB4, 0x50);
-const LIGHT_COLS = [WARM_W, C3(0xFF, 0x48, 0x48), C3(0xFF, 0xC8, 0x3C), C3(0x52, 0xE0, 0x6A)];
-const BALL_COLS = [RED, GOLD, SILVER];
-const SNOWF = { x: 870, y: 1632, rx: 730, ry: 160 };
-const SCENE_DIM = 0.82;                                           // 풍경은 살짝 어둡게
-const BALLS = Array.from({ length: 15 }, (_, i) => ({ h: 0.13 + 0.74 * ((i * 0.618 + 0.1) % 1), th: i * 2.4, col: BALL_COLS[i % 3], at: T_DECO + 0.03 * i }))
-  .sort((a, b) => a.h - b.h);
-const LIGHTS = Array.from({ length: 44 }, (_, i) => { const s = i / 43; return { h: 0.1 + 0.84 * s, th: s * 2 * Math.PI * 3.3 + 0.6, col: LIGHT_COLS[i % 4], at: T_DECO + 0.1 + 0.012 * i }; });
-// 선물 상자 [가운데 x, 바닥 y, 폭, 높이, 상자 색, 리본 색, 나오는 때]
-const PRESENTS = [[112, 1600, 100, 84, RED, GOLD, T_DECO + 0.1], [306, 1606, 92, 76, XGREEN, RED, T_DECO + 0.2], [210, 1624, 80, 60, GOLD, RED, T_DECO + 0.3]];
-// 사탕 지팡이 [x, 바닥 y, 키, 나오는 때]
-const CANES = [[1446, 1592, 250, T_DECO + 0.25], [1506, 1580, 196, T_DECO + 0.35]];
-const SLEIGH = [
-  '  o_          ,Y    ,Y ',
-  "\\(##)/~~~~~~(o>~~~(o> ",
-  " `~~'        /\\    /\\ ",
-];
-const SCN = { yaw: 0, tapT: -99, box: null, sleighNext: T_IDLE + 7, sleighT0: -99, sleighRow: 1 };
-let sCh, sR, sG, sB, snowField = null;
-function sceneSet(r, c, g, C, k) {                 // 풍경 칸 하나 (k = 밝기)
-  if (r < 0 || r >= TR || c < 0 || c >= TC) return;
-  const q = r * TC + c; sCh[q] = GI[g]; sR[q] = C[0] * k; sG[q] = C[1] * k; sB[q] = C[2] * k;
-}
-function drawScene(t, ta) {
-  const cellW = dp * S, rowH = 2 * cellW, nc = TC * TR;
-  sCh.fill(0);
-  const colOf = px => Math.round((px - PX0) / cellW - 0.5), rowOf = py => Math.round((py - PY0) / rowH - 0.5);
-  const cpx = c => PX0 + (c + 0.5) * cellW, cpy = r => PY0 + (r + 0.5) * rowH;
-  const cy = Math.cos(SCN.yaw), sy = Math.sin(SCN.yaw);
-  const scrX = (x, z) => CX + x * cy + z * sy;                    // 캐릭터와 같이 도는 세상 점 → 사진 x
-  const tapF = STILL ? 0 : Math.exp(-(clock - SCN.tapT) / 0.55);
-  // ── 눈밭: 받침대 둘레로 소복이 ──
-  const sp = STILL ? 1 : easeOutCubic((t - T_SNOWF) / 0.55);
-  if (sp > 0) {
-    let field = snowField;
-    if (sp < 1 || !field) {
-      field = new Float32Array(nc * 2);                           // [글자, 밝기]
-      const rx = SNOWF.rx * sp, ry = SNOWF.ry * sp;
-      for (let r = Math.max(0, rowOf(SNOWF.y - ry - 40)); r <= Math.min(TR - 1, rowOf(SNOWF.y + ry)); r++) {
-        const py = cpy(r);
-        for (let c = Math.max(0, colOf(SNOWF.x - rx)); c <= Math.min(TC - 1, colOf(SNOWF.x + rx)); c++) {
-          const px = cpx(c), dx = (px - SNOWF.x) / rx;
-          if (Math.abs(dx) >= 1) continue;
-          const sq = Math.sqrt(1 - dx * dx), top = SNOWF.y - ry * sq - (10 + 9 * Math.sin(px / 47) + 5 * Math.sin(px / 17 + 1)) * sq, bot = SNOWF.y + ry * sq;
-          if (py < top || py > bot) continue;
-          const q = r * TC + c, hs = hash1(q * 3.1 + 0.7), edge = smooth(0, 0.25, sq);
-          if (py - top < rowH) { field[q * 2] = GI[hs < 0.55 ? '~' : '-']; field[q * 2 + 1] = 0.78 * edge; }
-          else if (hs < 0.42) { field[q * 2] = GI[hs < 0.2 ? ':' : '.']; field[q * 2 + 1] = (0.38 + 0.25 * hs) * edge; }
-        }
-      }
-      if (sp >= 1) snowField = field;
-    }
-    for (let q = 0; q < nc; q++) if (field[q * 2]) { sCh[q] = field[q * 2]; const k = field[q * 2 + 1] * SCENE_DIM; sR[q] = SNOW_PILE[0] * k; sG[q] = SNOW_PILE[1] * k; sB[q] = SNOW_PILE[2] * k; }
-  }
-  // ── 트리: 아래부터 쑥 ──
-  const gp = STILL ? 1 : easeOutBack((t - T_TREE) / 0.65);
-  SCN.box = null;
-  if (gp > 0.01) {
-    const g = gp, Ht = TREE.h * g, base = TREE.base, cxT = scrX(TREE.x, TREE.z), lean = SCN.yaw * 0.16 * Ht;
-    const axis = h => cxT + lean * h;                              // 갸웃: 위로 갈수록 살짝 기울어요
-    const halfAt = h => { let w = 0; for (const [hb, ht, hw] of TIERS) if (h >= hb && h <= ht) w = Math.max(w, hw * g * (ht - h) / (ht - hb)); return w; };
-    const r0 = Math.max(0, rowOf(base - Ht)), r1 = Math.min(TR - 1, rowOf(base));
-    const wMax = TIERS[0][2] * g + Math.abs(lean) + cellW;
-    const c0 = Math.max(0, colOf(cxT - wMax)), c1 = Math.min(TC - 1, colOf(cxT + wMax));
-    SCN.box = [cxT - wMax, base - Ht - 80, cxT + wMax, base + 20];
-    for (let r = r0; r <= r1; r++) {
-      const py = cpy(r), h = (base - py) / Ht;
-      if (h < -0.01 || h > 1) continue;
-      for (let c = c0; c <= c1; c++) {
-        const dx = cpx(c) - axis(h);
-        const hq = Math.round(h * Ht / rowH), xq = Math.round(dx / cellW), hs = hash1(hq * 37.7 + xq * 5.3 + 11);
-        let done = false;
-        for (let k = TIERS.length - 1; k >= 0; k--) {               // 위층이 아래층 위에 덮여요
-          const [hb, ht, hw] = TIERS[k], w = hw * g;
-          const u0 = dx / w, hbE = hb - 0.022 * (1 - Math.min(u0 * u0, 1));   // 둥근 아랫단
-          if (h < hbE || h > ht) continue;
-          const half = w * (ht - h) / (ht - hb) + cellW * 0.3;
-          if (Math.abs(dx) > half) continue;
-          const u = dx / half, nz = Math.sqrt(Math.max(0, 1 - u * u));
-          let lit = clamp01(0.32 + 0.3 * u + 0.5 * nz);
-          if (k < TIERS.length - 1 && h > TIERS[k + 1][0] - 0.05) lit *= 0.7;   // 위층 아래 그늘
-          if ((h - hbE) * Ht < rowH * 0.95 && hs < 0.72) {             // 가지 끝에 눈이 살짝
-            sceneSet(r, c, hs < 0.4 ? '~' : '^', SNOW_PILE, (0.62 + 0.2 * lit) * SCENE_DIM);
-          } else {
-            const m = clamp01(0.15 + 0.22 * k + 0.45 * lit), Cg = [0, 1, 2].map(i => TREE_DARK[i] + (TREE_LIGHT[i] - TREE_DARK[i]) * m);
-            const ch = hs < 0.42 ? '^' : lit > 0.66 ? '#' : lit > 0.42 ? '*' : '+';
-            sceneSet(r, c, ch, Cg, (0.55 + 0.5 * lit) * SCENE_DIM);
-          }
-          done = true; break;
-        }
-        if (!done && h < 0.085 && Math.abs(dx) < 24 * g + cellW * 0.3) sceneSet(r, c, '#', TRUNK, 0.75 * SCENE_DIM);
-      }
-    }
-    // 장식 볼과 전구 (트리 둘레에 붙어 있어서 트리와 같이 돌아요)
-    const onTree = (r, c) => r >= 0 && r < TR && c >= 0 && c < TC && sCh[r * TC + c] && r >= r0;
-    const place = (h, th, inset) => {
-      const a = th + SCN.yaw * 1.6, R = halfAt(h) * inset;
-      return [rowOf(base - h * Ht), colOf(axis(h) + R * Math.sin(a)), Math.cos(a)];
-    };
-    if (g > 0.9) {
-      for (const L of LIGHTS) {                                   // 전구 줄: 감으며 줄줄이 반짝
-        if (!STILL && t < L.at) continue;
-        const [r, c, f] = place(L.h, L.th, 0.92); if (f < 0.05 || !onTree(r, c)) continue;
-        const i = LIGHTS.indexOf(L);
-        let on = STILL ? 0.8 : (0.5 + 0.5 * Math.cos(2 * Math.PI * (i / 7 - ta * 0.7))) ** 3;
-        on = Math.max(on, tapF, STILL ? 0 : flash(t, L.at, 0.2));
-        const wh = 0.45 * tapF + 0.2 * on * on, br = (0.62 + 0.38 * on) * (0.8 + 0.2 * f);
-        sceneSet(r, c, on > 0.45 ? '*' : 'o', L.col.map(v => v * (1 - wh) + wh), br);
-      }
-      for (const B of BALLS) {                                    // 빨강·금색·은색 볼
-        if (!STILL && t < B.at) continue;
-        const [r, c, f] = place(B.h, B.th, 0.78); if (f < 0.1 || !onTree(r, c)) continue;
-        const pk = STILL ? 0 : flash(t, B.at, 0.18);
-        sceneSet(r, c, 'O', B.col.map(v => v * (1 - pk) + pk), (0.6 + 0.4 * f) * 0.95);
-      }
-    }
-    // 꼭대기 금색 별 + 빛살
-    const sf = STILL ? 0 : flash(t, T_STAR, 0.45);
-    if (STILL || t >= T_STAR) {
-      const rs = rowOf(base - Ht + rowH * 0.35), cs = colOf(axis(1.0));
-      const tw = STILL ? 0.6 : 0.5 + 0.5 * Math.sin(ta * 3.1), big = Math.max(sf, tapF);
-      sceneSet(rs, cs, '@', GOLD_HI, 1);
-      sceneSet(rs, cs - 1, '<', GOLD, 0.95); sceneSet(rs, cs + 1, '>', GOLD, 0.95);
-      const Lh = 1 + Math.round(tw * 1.4 + big * 6), Lv = Math.round(tw * 0.8 + big * 3), Ld = Math.round((1 - tw) * 1.2 + big * 3);
-      for (let d = 2; d <= Lh; d++) { const k = 1 - (d - 1) / (Lh + 1); sceneSet(rs, cs - d, '-', GOLD_RAY, k); sceneSet(rs, cs + d, '-', GOLD_RAY, k); }
-      for (let d = 1; d <= Lv; d++) { const k = 1 - d / (Lv + 1.5); sceneSet(rs - d, cs, '|', GOLD_RAY, k); if (!onTree(rs + d, cs)) sceneSet(rs + d, cs, '|', GOLD_RAY, k); }
-      for (let d = 1; d <= Ld; d++) {
-        const k = 0.9 * (1 - d / (Ld + 1.5));
-        sceneSet(rs - d, cs - 1 - d, '\\', GOLD_RAY, k); sceneSet(rs - d, cs + 1 + d, '/', GOLD_RAY, k);
-        if (big > 0.2) { sceneSet(rs + d, cs - 1 - d, '/', GOLD_RAY, k * big); sceneSet(rs + d, cs + 1 + d, '\\', GOLD_RAY, k * big); }
-      }
-      SCN.star = [cpx(cs), cpy(rs)];
-    }
-    // 트리 아래 선물 상자 3개 (트리와 같이 움직여요)
-    const shift = cxT - (CX + TREE.x);
-    for (const [bx, by, bw, bh, Cb, Cr, at] of PRESENTS) {
-      if (!STILL && t < at) continue;
-      const pk = STILL ? 0 : flash(t, at, 0.2), x0 = bx + shift - bw / 2, x1 = bx + shift + bw / 2;
-      const ra = rowOf(by - bh), rb = rowOf(by - 1), ca = colOf(x0), cb = colOf(x1), cm = colOf(bx + shift), rm = rowOf(by - bh * 0.5);
-      for (let r = ra; r <= rb; r++) for (let c = ca; c <= cb; c++) {
-        const rib = c === cm || r === rm, sh = c === ca ? 0.72 : 1;
-        sceneSet(r, c, rib ? (c === cm ? '|' : '=') : '#', (rib ? Cr : Cb).map(v => v * (1 - pk) + pk), sh * 0.9 * SCENE_DIM);
-      }
-      sceneSet(ra - 1, cm - 1, ')', Cr, 0.95 * SCENE_DIM); sceneSet(ra - 1, cm, 'o', Cr, SCENE_DIM); sceneSet(ra - 1, cm + 1, '(', Cr, 0.95 * SCENE_DIM);   // 리본 매듭
-    }
-    // 사탕 지팡이 2개 (오른쪽 뒤 눈밭 가장자리)
-    const shiftR = scrX(1440 - CX, -160) - 1440;
-    for (const [x, by, hgt, at] of CANES) {
-      if (!STILL && t < at) continue;
-      const ce = STILL ? 1 : easeOutBack((t - at) / 0.3), c = colOf(x + shiftR), rb = rowOf(by), rt = rowOf(by - hgt * ce);
-      for (let r = rt + 1; r <= rb; r++) sceneSet(r, c, '|', (r & 1) ? RED : SNOW_W, 0.95 * SCENE_DIM);
-      sceneSet(rt, c - 1, '/', SNOW_W, 0.95 * SCENE_DIM); sceneSet(rt, c, '\\', RED, 0.95 * SCENE_DIM);
-      sceneSet(rt + 1, c - 1, "'", RED, 0.95 * SCENE_DIM);
-    }
-  }
-  // ── 산타 썰매: 가끔 하늘 위쪽을 왼쪽 → 오른쪽으로 슝 ──
-  if (!STILL && t >= T_IDLE) {
-    if (ta >= SCN.sleighNext) {
-      SCN.sleighT0 = ta; SCN.sleighNext = ta + 13 + Math.random() * 4; sfx('sleigh');
-    }
-    SCN.sleighRow = Math.max(1, Math.min(Math.round(TR * 0.07), rowOf(330) - 3));
-    const dur = 4.6, p = (ta - SCN.sleighT0) / dur;
-    if (p >= 0 && p <= 1) {
-      const wid = SLEIGH[0].length, head = Math.round(-wid + p * (TC + wid + 24)), rr = SCN.sleighRow + Math.round(-1.2 * Math.sin(Math.PI * p) + 0.6);
-      const ink = C3(0xF4, 0xE2, 0xB8);
-      SLEIGH.forEach((line, dr) => { for (let i = 0; i < line.length; i++) {
-        const ch = line[i]; if (ch === ' ') continue;
-        sceneSet(rr + dr, head + i, ch, ch === '~' ? GOLD_SH : ink, ch === '~' ? 0.6 : 0.85);
-      } });
-      for (let k = 1; k <= 16; k++) {                             // 반짝이 꼬리
-        const c = head - k, f = 1 - k / 17, n = hash1(k * 7.7 + Math.floor(ta * 12));
-        if (n > 0.75 * f + 0.15) continue;
-        const r = rr + 1 + Math.round(Math.sin(k * 0.9 + ta * 6) * 0.7 + (n - 0.5));
-        sceneSet(r, c, n < 0.3 * f ? '*' : n < 0.6 ? '+' : '.', n < 0.5 ? GOLD_HI : SNOW_W, 0.35 + 0.65 * f);
-      }
-    }
-  }
-}
-function treeHit(px, py) { const b = SCN.box; return b && px >= b[0] && px <= b[2] && py >= b[1] && py <= b[3]; }
-function treeTap() {
-  sfx('tree');
-  SCN.tapT = clock;
-  if (SCN.star) emitSparkles(SCN.star[0], SCN.star[1], 12, 520, GOLD_HI, 0.7, 120);
-}
+let fallers = [], flurry = [], gSteam, gSteamD, gSteamCh, cellGift, riceMask, snowPed = null;
+// 고리 전구 40개 (고리 가운데 선을 따라)
+const BULBS = Array.from({ length: 40 }, (_, i) => { const th = (40 + i * 100 / 39) * Math.PI / 180;
+  return [RING_C[0] + RING_RAD * Math.cos(th), RING_C[1] - RING_RAD * Math.sin(th)]; });
 
 // ═════════════════════════════════════════════════════════════════════
 //  광선 맞추기 — 캐릭터 좌표(가운데 0, 위 +y, 앞 +z)
@@ -768,28 +377,6 @@ function setRays(yaw, gsx, gsy, jy) {
   F.bx = -F.s / gsx; F.bz = F.c / gsx;
   for (let i = 0; i < NX; i++) { AX[i] = F.c * GX[i] / gsx; AZ[i] = F.s * GX[i] / gsx; }
   for (let j = 0; j < NY; j++) AY[j] = F.G + (GY[j] - F.G - jy) / gsy;
-}
-let RT = null;
-function rollBuffers(ang) {                         // 옆으로 기우뚱 (땅 가운데가 축)
-  const n = NX * NY;
-  if (!RT || RT.Z.length !== n) RT = { Z: new Float32Array(n), R: new Float32Array(n), G: new Float32Array(n), B: new Float32Array(n), L: new Float32Array(n), M: new Int8Array(n), P: new Int8Array(n) };
-  RT.Z.set(ZB); RT.R.set(RB); RT.G.set(GB); RT.B.set(BB); RT.L.set(LB); RT.M.set(MB); RT.P.set(PB);
-  const pi = (871 - PX0) / dp - 0.5, pj = (1652 - PY0) / dp - 0.5, c = Math.cos(ang), sn = Math.sin(ang);
-  for (let j = 0; j < NY; j++) {
-    const dy = j - pj;
-    for (let i = 0; i < NX; i++) {
-      const dx = i - pi, si = Math.round(pi + c * dx - sn * dy), sj = Math.round(pj + sn * dx + c * dy), k = j * NX + i;
-      if (si < 0 || sj < 0 || si >= NX || sj >= NY) { ZB[k] = -Infinity; MB[k] = 0; PB[k] = 0; continue; }
-      const q = sj * NX + si;
-      ZB[k] = RT.Z[q]; RB[k] = RT.R[q]; GB[k] = RT.G[q]; BB[k] = RT.B[q]; LB[k] = RT.L[q]; MB[k] = RT.M[q]; PB[k] = RT.P[q];
-    }
-  }
-  // 구슬 빛무리·입·머리 위 같은 화면 위치들도 같이 돌려요
-  for (const key of ['orbView', 'pomView', 'mouthView', 'headTopV', 'leyeV', 'reyeV', 'cheekV', 'bubbleV', 'riceTopV']) {
-    const v = STATE[key]; if (!v) continue;
-    const dx = v[0] - 871, dy = v[1] - 1652;
-    STATE[key] = [871 + c * dx + sn * dy, 1652 - sn * dx + c * dy];
-  }
 }
 function setupRays(yaw, gsx, gsy, jy) {
   setRays(yaw, gsx, gsy, jy);
@@ -906,47 +493,6 @@ function hitOBB(c, h, R, cb) {
     }
   }
 }
-// 목(머리 아래 조금 뒤)을 축으로 앞으로 기운 머리 — 광선을 머리 좌표로 돌려서 풀어요
-const NECK = [0, 60, -60];                       // 머리 좌표(머리 밑 가운데 기준) 목 축
-// 머리 폭 표(1px 간격) — 돌린 머리를 빨리 그리려고
-const HEADA_T = (() => { const T = new Float32Array(HH + 3); for (let i = 0; i < T.length; i++) T[i] = headA(i); return T; })();
-function headAT(ly) { if (ly <= 0) return HEADA_T[0]; if (ly >= HH) return HEADA_T[HH]; const i = ly | 0, f = ly - i; return HEADA_T[i] + (HEADA_T[i + 1] - HEADA_T[i]) * f; }
-function hitHeadRot(HB, sx, sy, R, cb) {
-  if (Math.abs(R[1]) + Math.abs(R[2]) + Math.abs(R[3]) + Math.abs(R[5]) + Math.abs(R[6]) + Math.abs(R[7]) < 1e-4) return hitHead(HB, sx, sy, cb);
-  const P0 = [HB[0] + NECK[0] * sx, HB[1] + NECK[1] * sy, HB[2] + NECK[2] * sx];
-  const mc = mv(R, [0, (HH * 0.55 - NECK[1]) * sy, -NECK[2] * sx]);            // 돌린 뒤 머리 가운데
-  if (!box(P0[0] + mc[0], P0[1] + mc[1], P0[2] + mc[2], Math.hypot(HA * sx, HH * sy * 0.6) + 40)) return;
-  const [i0, i1, j0, j1] = BOX;
-  // 머리 좌표 = R^T (점 - 목) / 크기 + 목
-  const dlx = (R[0] * F.bx + R[6] * F.bz) / sx, dly = (R[1] * F.bx + R[7] * F.bz) / sy, dlz = (R[2] * F.bx + R[8] * F.bz) / sx;
-  for (let j = j0; j < j1; j++) {
-    const oy = AY[j] - P0[1];
-    for (let i = i0; i < i1; i++) {
-      const ox = AX[i] - P0[0], oz = AZ[i] - P0[2];
-      const olx = (R[0] * ox + R[3] * oy + R[6] * oz) / sx + NECK[0], oly = (R[1] * ox + R[4] * oy + R[7] * oz) / sy + NECK[1], olz = (R[2] * ox + R[5] * oy + R[8] * oz) / sx + NECK[2];
-      let ly = oly + dly * 380, t = 0, Aw = 0, Cw = 0, hit = false;
-      for (let it = 0; it < 6; it++) {
-        if (ly < 0 || ly > HH - 0.5) { hit = false; break; }
-        Aw = Math.max(headAT(ly), 1e-3); Cw = H_DEPTH * Aw;
-        const qa = (dlx / Aw) ** 2 + (dlz / Cw) ** 2, qb = 2 * (olx * dlx / (Aw * Aw) + olz * dlz / (Cw * Cw)), qc = (olx / Aw) ** 2 + (olz / Cw) ** 2 - 1;
-        const D = qb * qb - 4 * qa * qc;
-        if (D < 0) { hit = false; break; }
-        t = (-qb + Math.sqrt(D)) / (2 * qa);
-        const ln = oly + dly * t; hit = true;
-        if (Math.abs(ln - ly) < 0.25) { ly = ln; break; }
-        ly = ln;
-      }
-      if (!hit || ly < 0 || ly > HH - 0.5) continue;
-      Aw = Math.max(headAT(ly), 1e-3); Cw = H_DEPTH * Aw;
-      const lx = olx + t * dlx, lz = olz + t * dlz;
-      if (Math.abs((lx / Aw) ** 2 + (lz / Cw) ** 2 - 1) > 0.06) continue;     // 덜 맞은 점은 버려요(가장자리 깨짐 방지)
-      const dA = headAT(ly + 0.5) - headAT(ly - 0.5);
-      const nx = lx / (Aw * Aw) / sx, ny = -dA / Aw / sy, nz = lz / (Cw * Cw) / sx;
-      viewN(R[0] * nx + R[1] * ny + R[2] * nz, R[3] * nx + R[4] * ny + R[5] * nz, R[6] * nx + R[7] * ny + R[8] * nz);
-      cb(j * NX + i, t, lx, ly, lz, Cw);
-    }
-  }
-}
 function hitHead(HB, sx, sy, cb) {
   if (!box(HB[0], HB[1] + HH * sy * 0.55, HB[2], Math.hypot(HA * sx, HH * sy * 0.6) + 4)) return;
   const [i0, i1, j0, j1] = BOX, bx = F.bx / sx, bz = F.bz / sx;
@@ -1027,10 +573,7 @@ function hitPlane(O, ex, ey, radius, cb) {
 // ═════════════════════════════════════════════════════════════════════
 //  모션
 // ═════════════════════════════════════════════════════════════════════
-const DUR = { jump: 1.15, wave: 2.1, flap: 0.85, wink: 0.55, bspin: 0.9, tail: 1.5, orb: 1.4, spin: 1.5, gift: 999, catch: 2.5, sneeze: 2.2,
-  look: 3.5, tilt: 2.4, yawn: 3.6, chase: 3.8, tailchase: 3.9, hum: 4.2, clap: 2.4, hiccup: 3.0, stare: 3.3, roll: 2.9, wake: 3.4 };
-const MPAR = {};                  // 모션마다 시작할 때 정하는 랜덤 값
-const sideOf = m => (MPAR[m] && MPAR[m].side) || 1;
+const DUR = { jump: 1.15, wave: 2.1, flap: 0.85, wink: 0.55, bspin: 0.9, tail: 1.5, orb: 1.4, spin: 1.5, gift: 10.9, catch: 2.5, sneeze: 2.2 };
 const motions = {};               // 이름 → 시작 시각
 const EV = {};                    // 모션마다 한 번만 일어나는 일
 let clock = 0, swayAmp = 1, nextAuto = 0, lastSpecial = 0, landed = false;
@@ -1052,9 +595,9 @@ function once(name, key) {
 }
 function trigger(name, user = true) {
   if (!built() && !FORCE) return;
-  if (name === 'hearts') { emitHearts(5); sfx('heart'); }
+  if (name === 'hearts') { emitHearts(5); }
   else if (name === 'hat') {                 // 모자 톡: 방울 통통 + 반짝이
-    kickHat(1.5); sfx('wink');
+    kickHat(1.5);
     const pv = STATE.pomView || [HAT_POM[0] + HAT_C[0], HAT_C[1] - HAT_POM[1]];
     emitSparkles(pv[0], pv[1], 9, 430, null, 0.6, 250);
   }
@@ -1065,10 +608,9 @@ function trigger(name, user = true) {
     if (name === 'spin' && isOn('wave')) return;
     if (name === 'wave' && isOn('spin')) return;
     if (isOn(name) && name !== 'wink') return;    // 같은 모션이 진행 중이면 그대로
-    motions[name] = clock; EV[name] = {}; MPAR[name] = { side: Math.random() < 0.5 ? -1 : 1 };
-    const sn = { jump: 'jump', flap: 'flap', wink: 'wink', spin: 'spin', bspin: 'spin', sneeze: 'sneezeA', gift: 'boxUp' }[name]; if (sn) sfx(sn);
+    motions[name] = clock; EV[name] = {};
     if (name === 'jump') { landed = false; kickHat(0.7); }
-    if (name === 'gift') { lastGift = clock; startGift(); }
+    if (name === 'gift') lastGift = clock;
   }
   if (user) nextAuto = clock + 2.5 + Math.random() * 0.8;
 }
@@ -1088,7 +630,6 @@ function emitSparkles(x, y, n, spd, col, life = 0.6, g = 300, spread = Math.PI *
   }
 }
 function emitLanding() {
-  sfx('land');
   for (let i = 0; i < 12; i++) {
     const side = i % 2 ? 1 : -1;
     particles.push({ heart: false, x: 870 + side * (150 + Math.random() * 230), y: 1645, vx: side * (180 + Math.random() * 380), vy: -250 - Math.random() * 450, g: 1500, age: 0, life: 0.45 + Math.random() * 0.3, ph: 0 });
@@ -1135,156 +676,11 @@ function jumpPose(xj, Hh = 190) {
 }
 
 // ── 새 모션들(눈 받아먹기 · 에취 · 선물 열기)의 이번 장면 값 ──
-const FX = { mouthO: 0, happy: 0, eyeClose: 0, lift: 0, belly: 0, gsx: 1, gsy: 1, jy: 0, yaw: 0, calm: false, flake: -1,
-  mouthBig: 1, tongue: 0, lick: -1, happy2: 0, tail: 0, headZ: 0, headX: 0, pitch: 0,
-  hyaw: 0, hroll: 0, headS: 1, eyeDX: 0, eyeDY: 0, eyeBig: 1, dizzy: 0, sleepEye: 0, bubble: 0, wing: 0, arm: [null, null], bodyRoll: 0, headBusy: false, chaseFlake: null };
-// ── 선물 열기: 고봉밥 사발을 껴안고 와구와구 (단계별 상태 기계, 매번 조금씩 랜덤) ──
-const GPH = ['open', 'hug', 'eat', 'look', 'pat', 'burp'];
-const GDUR = { open: 1.95, hug: 0.7, look: 1.1, pat: 1.3, burp: 1.6 };
-const GF = { on: false, t: 0, ph: '', pt: 0, N: 7, bd: 0.5, bdi: 0.5, bu: 0, bites: 0, amt: 1, hShow: 1, per: 1 / 7,
-  boostUntil: -1, hearts: 3, gdir: 0, ev: {}, cheek: false, bumps: [], box: 0, lidS: 99, steam: 0, tw: 0,
-  bowl: { on: false, c: [0, 0, 0], R: I3, s: 1 }, arm: [null, null] };
-const rnd = (a, b) => a + Math.random() * (b - a);
-const lerp3 = (a, b, e) => [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e];
-const BOWL_HUG = [-235, CY - 1150, 500];               // 껴안은 사발(테두리 가운데, 캐릭터 좌표)
-const BOWL_DOWN = [-300, CY - (1652 - 232), 480];      // 내려놓은 사발
-const SHOULDER = [P(650, 1190, 75), P(mirror(650), 1190, 75)], SHOULDER_HUG = [[-200, CY - 1205, 150], [200, CY - 1205, 150]];
-const REST_PAW = [P(543, 1425, 75), P(mirror(543), 1425, 75)];
-const BELLY_PAT = [40, CY - 1325, 330];
-function gEv(k) { if (GF.ev[k]) return false; GF.ev[k] = 1; return true; }
-function startGift() {
-  Object.assign(GF, { on: true, t: 0, ph: 'open', pt: 0, N: 6 + (Math.random() * 3 | 0), bd: rnd(0.38, 0.52), bu: 0, bites: 0,
-    amt: 1, hShow: 1, boostUntil: -1, hearts: 2 + (Math.random() * 4 | 0), gdir: rnd(-0.7, 0.7), ev: {}, cheek: false });
-  GF.per = 1 / GF.N; GF.bdi = GF.bd;
-  GF.bumps = [[0, 1.0, 0, 112]];                          // 구름처럼 몽글몽글: 꼭대기 + 둘레 6덩이
-  const a0 = Math.random() * 6.283;
-  for (let k = 0; k < 6; k++) { const a = a0 + k * 1.047 + rnd(-0.25, 0.25), rr = rnd(150, 182); GF.bumps.push([rr * Math.cos(a), rnd(0.42, 0.62), rr * Math.sin(a), rnd(80, 102)]); }
-}
-function giftNext() {
-  const i = GPH.indexOf(GF.ph); GF.pt = 0;
-  if (i >= GPH.length - 1 || GF.t > 40) { GF.on = false; delete motions.gift; return; }
-  GF.ph = GPH[i + 1];
-}
-function updateGift(dt) {
-  if (!GF.on) return;
-  GF.t += dt; GF.pt += dt;
-  if (GF.ph === 'eat') {
-    const sp = GF.t < GF.boostUntil ? 2 : 1, prev = GF.bu;    // 톡 하면 3초 동안 2배속
-    GF.bu += dt * sp / GF.bdi;
-    if (prev < 0.62 && GF.bu >= 0.62) giftChomp();
-    if (GF.bu >= 1) {
-      GF.bu = 0; GF.bites++; GF.bdi = GF.bd * rnd(0.85, 1.15);
-      if (GF.amt <= 0.001) giftNext();
-    }
-  } else if (GF.pt >= GDUR[GF.ph]) giftNext();
-  GF.hShow += (Math.max(GF.amt, 0) - GF.hShow) * Math.min(1, dt * 10);
-}
-function giftChomp() {                                    // 앙!
-  sfx('chomp');
-  GF.amt = Math.max(0, GF.amt - GF.per); GF.cheek = true;
-  const m = STATE.mouthView || MO_C;
-  emitGrains(m[0], m[1] + 40, 6 + (Math.random() * 6 | 0));
-  if (Math.random() < GF.hearts / GF.N) heartUp();
-  if (Math.random() < 0.3) motions.flap = clock;
-  kickHat(0.6);
-}
-function giftBoost() {                                    // 한 숟갈 더!
-  GF.boostUntil = GF.t + 3; GF.amt = Math.min(GF.amt + 0.3, 1.15);
-  const v = STATE.riceTopV || [700, 1000];
-  emitSparkles(v[0], v[1], 8, 380, null, 0.6, 200);
-  heartUp();
-}
-function emitGrains(x, y, n) {                            // 밥알 . : 톡톡
-  for (let i = 0; i < n; i++) {
-    const a = -Math.PI / 2 + GF.gdir + rnd(-1.5, 1.5), v = rnd(250, 640);
-    particles.push({ heart: false, x: x + rnd(-30, 30), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 1500, age: 0, life: rnd(0.35, 0.6), ph: 0, col: RICE, grain: true });
-  }
-}
-function heartUp() {                                      // 머리 위로 하트 퐁
-  const v = STATE.headTopV || [871, 300];
-  particles.push({ heart: true, x: v[0] + rnd(-140, 140), y: v[1] - 10, vx: rnd(-50, 50), vy: rnd(-330, -240), g: -30, age: 0, life: 1.5, ph: Math.random() * 6 });
-}
-function giftFX() {
-  GF.box = 0; GF.lidS = 99; GF.bowl.on = false; GF.arm[0] = GF.arm[1] = null; GF.steam = 0; GF.tw = 0;
-  if (!GF.on) return;
-  FX.calm = true;
-  const ph = GF.ph, pt = GF.pt, D = GDUR[ph] || 1;
-  const present = rise => [0, CY - (1300 + (1 - rise) * 460), BOX_Z];
-  let bc = BOWL_HUG, bR = I3, bs = 1, turn = 0, wF = 0, wN = 0, near = null, nearTo = null;
-  const attach = (c, R, sg) => { const o = mv(R, [sg * 258, -25, -45]); return [c[0] + o[0], c[1] + o[1], c[2] + o[2]]; };
-  const patPos = u => [BELLY_PAT[0], BELLY_PAT[1], BELLY_PAT[2] + 45 * Math.abs(Math.sin(2 * Math.PI * 2.2 * Math.max(0, u)))];
-  if (ph === 'open') {                     // 1. 상자 쑥 → 폴짝 → 뚜껑 뻥 → 사발 쑥 → 반짝·파닥·하트
-    GF.box = easeOutBack(pt / 0.7);
-    if (pt > 0.55 && pt < 0.95) { const u = (pt - 0.55) / 0.4; FX.jy += 55 * Math.sin(Math.PI * u); }
-    GF.lidS = pt - 0.95;
-    if (pt >= 0.95 && gEv('pop')) { sfx('pop'); emitSparkles(871, 1400, 12, 620, GOLD_RAY, 0.6, 900, Math.PI * 0.9, -Math.PI / 2); kickHat(0.8); }
-    const rise = smooth(0.95, 1.7, pt);
-    bc = present(rise);
-    GF.steam = smooth(1.5, 2.0, pt);
-    FX.happy = smooth(1.6, 1.66, pt);
-    if (pt >= 1.6 && gEv('wow')) {
-      sfx('fanfare');
-      motions.flap = clock;
-      for (let i = 0; i < 2 + (Math.random() * 2 | 0); i++) heartUp();
-      for (const v of [STATE.leyeV, STATE.reyeV]) if (v) emitSparkles(v[0], v[1], 5, 300, null, 0.5, 0);
-    }
-  } else if (ph === 'hug') {               // 2. 몸을 30도 돌려 사발을 꼭 껴안기
-    const e = easeInOutCubic(pt / D);
-    GF.box = 1 - easeInOutCubic(pt / 0.6);
-    bc = lerp3(present(1), BOWL_HUG, e); turn = e; wF = wN = e;
-    FX.happy = 1 - smooth(0.3, 0.4, pt); GF.steam = 1;
-  } else if (ph === 'eat') {               // 3. 와구와구
-    const u = GF.bu, dip = smooth(0, 0.3, u) * (1 - smooth(0.68, 1, u)), bb = bump(u, 0.6, 0.32);
-    turn = 1; wF = wN = 1;
-    // 꾸벅: 입 벌리며 목을 축으로 앞으로 숙였다(앙!) → 들면서 살짝 뒤로 튕김
-    const nod = smooth(0, 0.32, u) * (1 - smooth(0.62, 0.95, u)) - 0.15 * bump(u, 0.78, 0.22);
-    FX.pitch = (12 * Math.PI / 180) * nod; FX.lift = -0.2 + 1.7 * Math.max(nod, 0); FX.headZ = 10 * Math.max(nod, 0); FX.headX = -15 - 15 * Math.max(nod, 0);
-    FX.mouthO = smooth(0.04, 0.3, u) * (1 - smooth(0.56, 0.64, u)); FX.mouthBig = 1.28; FX.tongue = 1;
-    FX.jy += 16 * bb; FX.gsy *= 1 - 0.035 * bump(u, 0.6, 0.18);
-    FX.tail = 1; GF.steam = 1;
-  } else if (ph === 'look') {              // 4. 빈 사발 들여다보고 낼름
-    const lf = smooth(0, 0.35, pt) * (1 - smooth(0.85, 1.1, pt));
-    turn = 1; wF = wN = 1;
-    bc = [BOWL_HUG[0], BOWL_HUG[1] + 125 * lf, BOWL_HUG[2] + 25 * lf]; bR = rotAxis([1, 0, 0], -0.3 * lf);
-    FX.pitch = (9 * Math.PI / 180) * lf; FX.headZ = 10 * lf;
-    if (pt > 0.5) FX.lick = (pt - 0.5) / 0.6;
-  } else if (ph === 'pat') {               // 5. 내려놓고 배 토닥토닥, 배 볼록
-    const e = easeInOutCubic(pt / 0.55);
-    turn = 1 - e; bc = lerp3(BOWL_HUG, BOWL_DOWN, e); wF = 1 - e; wN = 1;
-    near = lerp3(attach(lerp3(BOWL_HUG, BOWL_DOWN, 0), I3, 1), patPos(pt - 0.55), e); nearTo = [0, CY - 1330, 0];
-    FX.belly = smooth(0.2, 0.9, pt);
-  } else if (ph === 'burp') {              // 6. 끄억! ^^ 만족, 사발 반짝 사라짐
-    bc = BOWL_DOWN; bs = 1 - easeInOutCubic((pt - 0.5) / 0.4); GF.tw = bump(pt, 0.3, 0.65);
-    wN = 1 - easeInOutCubic(pt / 0.4); near = patPos(0); nearTo = [0, CY - 1330, 0];
-    if (pt >= 0.12 && gEv('burp')) { sfx('burp');
-      const m = STATE.mouthView || MO_C;
-      emitSparkles(m[0], m[1] - 10, 7, 260, null, 0.55, -120, Math.PI * 0.8, -Math.PI / 2);
-      kickHat(1);
-    }
-    if (pt >= 0.5 && gEv('vanish')) { const v = toView(bc); emitSparkles(v[0], v[1] + 60, 14, 420, SNOW_B, 0.8, -60); emitSparkles(v[0], v[1] + 60, 6, 300, null, 0.7, -60); }
-    FX.mouthO = 0.62 * bump(pt, 0.1, 0.32); FX.mouthBig = 0.85;
-    FX.jy += 10 * bump(pt, 0.1, 0.2); FX.gsy *= 1 + 0.05 * bump(pt, 0.1, 0.2);
-    FX.happy = FX.happy2 = smooth(0.3, 0.38, pt) * (1 - smooth(1.48, 1.58, pt));
-    FX.belly = 1 - smooth(0.5, 1.6, pt);
-  }
-  FX.yaw += (-30 * Math.PI / 180) * turn;
-  GF.bowl = { on: bs > 0.01 && (ph !== 'open' || pt >= 1.0), c: bc, R: bR, s: bs };
-  if (wF > 0) GF.arm[0] = { sh: lerp3(SHOULDER[0], SHOULDER_HUG[0], wF), paw: lerp3(REST_PAW[0], attach(bc, bR, -1), wF), to: bc };
-  if (wN > 0) GF.arm[1] = { sh: lerp3(SHOULDER[1], SHOULDER_HUG[1], wN), paw: lerp3(REST_PAW[1], near || attach(bc, bR, 1), wN), to: nearTo || bc };
-}
-// 확인용: ?gift=초 — 선물 모션을 그 시각까지 돌려 놓고 멈춤
-function giftPreview(sec) {
-  clock = Math.max(clock, T_IDLE + 4); trigger('gift', false);
-  const fz = FREEZE; FREEZE = false;
-  for (let i = 0; i < Math.round(sec * 30) && GF.on; i++) frame(1 / 30);
-  FREEZE = fz;
-}
+const FX = { mouthO: 0, happy: 0, eyeClose: 0, lift: 0, belly: 0, gsx: 1, gsy: 1, jy: 0, yaw: 0, calm: false, flake: -1 };
+const GS = { on: false, s: 0, box: 0, lidS: -1, rise: 0, eat: 0, bowlS: 1, bowlTw: 0, steam: 0, rays: 0 };
 function computeFX() {
   FX.mouthO = 0; FX.happy = 0; FX.eyeClose = 0; FX.lift = 0; FX.belly = 0;
   FX.gsx = 1; FX.gsy = 1; FX.jy = 0; FX.yaw = 0; FX.calm = false; FX.flake = -1;
-  FX.mouthBig = 1; FX.tongue = 0; FX.lick = -1; FX.happy2 = 0; FX.tail = 0; FX.headZ = 0; FX.headX = 0; FX.pitch = 0;
-  FX.hyaw = 0; FX.hroll = 0; FX.headS = 1; FX.eyeDX = 0; FX.eyeDY = 0; FX.eyeBig = 1; FX.dizzy = 0; FX.sleepEye = 0; FX.bubble = 0;
-  FX.wing = 0; FX.arm[0] = FX.arm[1] = null; FX.bodyRoll = 0; FX.headBusy = false; FX.chaseFlake = null;
   const mouthAt = () => STATE.mouthView || MO_C;
 
   // 눈 받아먹기: 고개 들고 → 입 동그랗게 → 냠 → 웃는 입
@@ -1294,7 +690,7 @@ function computeFX() {
     FX.lift = smooth(0, 0.4, s) * (1 - smooth(1.75, 2.3, s));
     FX.mouthO = Math.max(smooth(0.2, 0.45, s) * (1 - smooth(1.36, 1.48, s)), 0.5 * bump(s, 1.6, 0.24));
     if (s < 1.45) FX.flake = s / 1.45;
-    else if (once('catch', 'nom')) { sfx('nom'); const m = mouthAt(); emitSparkles(m[0], m[1] - 10, 6, 260, SNOW_B, 0.45, 0); kickHat(0.5); }
+    else if (once('catch', 'nom')) { const m = mouthAt(); emitSparkles(m[0], m[1] - 10, 6, 260, SNOW_B, 0.45, 0); kickHat(0.5); }
   }
 
   // 에취: 웅크림(에…) → 에취! 반짝이 팡 → 부르르
@@ -1307,7 +703,6 @@ function computeFX() {
     FX.eyeClose = smooth(0.3, 0.62, s) * (1 - smooth(1.0, 1.15, s));
     FX.mouthO = Math.max(FX.mouthO, 0.32 * smooth(0.35, 0.6, s) * (1 - smooth(0.66, 0.7, s)), 0.85 * bump(s, 0.7, 0.32));
     if (s >= 0.72 && once('sneeze', 'achoo')) {
-      sfx('sneezeB');
       const m = mouthAt();
       emitSparkles(m[0], m[1] + 25, 20, 780, null, 0.55, 500, Math.PI * 1.3, Math.PI / 2);
       emitSparkles(m[0], m[1] + 25, 6, 500, SNOW_B, 0.5, 300, Math.PI * 0.8, Math.PI / 2);
@@ -1320,269 +715,66 @@ function computeFX() {
     }
   }
 
-  idleFX();
-  sleepFX();
-  lookFX();
-  giftFX();
-  catDragonFX();
-}
-
-// ═════════════════════════════════════════════════════════════════════
-//  가만히 있을 때 모션 (대기 모션 · 졸기/잠 · 쳐다보기)
-// ═════════════════════════════════════════════════════════════════════
-const D2R = Math.PI / 180, clampV = (v, a, b) => v < a ? a : v > b ? b : v;
-function kf(t, keys) {             // [[시각, 값], …] 사이를 부드럽게
-  if (t <= keys[0][0]) return keys[0][1];
-  for (let i = 0; i < keys.length - 1; i++) { const [t0, v0] = keys[i], [t1, v1] = keys[i + 1]; if (t <= t1) return v0 + (v1 - v0) * smooth(t0, t1, t); }
-  return keys[keys.length - 1][1];
-}
-function armTo(i, w, paw, to, sh = SHOULDER_HUG[i]) {
-  return { sh: lerp3(SHOULDER[i], sh, w), paw: lerp3(REST_PAW[i], paw, w), to };
-}
-function lookAt(tx, ty, w, hk = 1) {      // (tx,ty) 사진 좌표 쪽으로 고개·눈 점
-  const dx = (tx - 871) / 700, dy = (ty - 760) / 700;
-  FX.hyaw += clampV(dx, -1, 1) * 0.45 * w * hk; FX.pitch += clampV(dy, -1, 1) * 0.28 * w * hk;
-  FX.eyeDX += clampV(dx * 1.6, -1, 1) * 14 * w; FX.eyeDY += clampV(dy * 1.6, -1, 1) * 10 * w;
-}
-function glyphPart(ch, x, y, col, o = {}) {    // 떠오르는 글자 (? ♪ ♫ Z z !) — 모자 위쪽에서 시작
-  particles.push(Object.assign({ glyph: ch, heart: false, x, y: y - 130, vx: 0, vy: -140, g: 150, age: 0, life: 1.5, ph: Math.random() * 6, col, wob: 0 }, o));
-}
-const NOTE_COLS = [C3(0xFF, 0x9C, 0xCE), C3(0xFF, 0xD8, 0x60), C3(0xA8, 0xDC, 0xFF), C3(0xB8, 0xF0, 0x90)];
-const ZCOL = C3(0xB8, 0xD8, 0xFF);
-
-function idleFX() {
-  let x, s;
-  // 두리번두리번: 왼쪽 → 오른쪽 → 정면 → 갸웃
-  if ((x = mp('look')) >= 0) {
-    s = x * DUR.look; const sd = sideOf('look');
-    const lr = kf(s, [[0, 0], [0.5, -1], [1.05, -1], [1.65, 1], [2.15, 1], [2.55, 0]]);
-    FX.hyaw += sd * 0.42 * lr; FX.eyeDX += sd * 14 * lr;
-    FX.hroll += sd * 0.2 * kf(s, [[2.5, 0], [2.85, 1], [3.2, 1], [3.5, 0]]);
-    FX.headBusy = FX.calm = true;
-  }
-  // 갸웃: 한쪽으로 기울며 ? 퐁
-  if ((x = mp('tilt')) >= 0) {
-    s = x * DUR.tilt; const sd = sideOf('tilt'), k = kf(s, [[0, 0], [0.35, 1], [1.9, 1], [2.35, 0]]);
-    FX.hroll += sd * 0.26 * k; FX.eyeDY -= 6 * k; FX.eyeDX -= sd * 5 * k;
-    if (s >= 0.35 && once('tilt', 'q')) { const v = STATE.headTopV || [871, 280]; glyphPart('?', v[0] - sd * 230, v[1] + 10, C3(0xFF, 0xF0, 0x90), { vy: -120, g: 140, life: 1.7 }); }
-    FX.headBusy = FX.calm = true;
-  }
-  // 하품 + 기지개: 하~암, 두 팔 쭉, 날개도 쭉
-  if ((x = mp('yawn')) >= 0) {
-    s = x * DUR.yawn;
-    const open = kf(s, [[0.1, 0], [1.0, 1], [2.3, 1], [2.8, 0]]), up = kf(s, [[0.6, 0], [1.3, 1], [2.4, 1], [3.0, 0]]);
-    FX.mouthO = Math.max(FX.mouthO, open); FX.mouthBig = Math.max(FX.mouthBig, 1 + 0.3 * open); if (open > 0.3) FX.tongue = 1;
-    FX.eyeClose = Math.max(FX.eyeClose, kf(s, [[0.3, 0], [0.9, 1], [2.5, 1], [2.9, 0]]));
-    FX.pitch -= 0.15 * kf(s, [[0, 0], [0.9, 1], [2.4, 1], [2.9, 0]]);
-    FX.gsy *= 1 + 0.05 * up + 0.012 * up * Math.sin(2 * Math.PI * 7 * s); FX.gsx *= 1 - 0.025 * up; FX.jy += 8 * up;
-    FX.wing += 0.55 * up;
-    if (up > 0.01) for (const i of [0, 1]) { const sg = i ? 1 : -1, paw = [sg * 600, CY - 1000, 90];
-      FX.arm[i] = armTo(i, up, paw, [paw[0] + sg * 150, paw[1] + 120, paw[2]], SHOULDER[i]); }
-    FX.headBusy = FX.calm = true;
-  }
-  // 눈송이 쫓기: 눈으로 따라가다 폴짝! → 휙 놓침
-  if ((x = mp('chase')) >= 0) {
-    s = x * DUR.chase; const sd = sideOf('chase');
-    let fx = 871 + sd * 330 + 50 * Math.sin(s * 2.6), fy = 60 + 300 * Math.min(s, 2.05);
-    if (s > 2.05) { const e = s - 2.05; fx += sd * (250 * e + 900 * e * e); fy += 150 * e; }
-    if (s < 3.5) FX.chaseFlake = [fx, fy];
-    lookAt(fx, fy, kf(s, [[0, 0], [0.4, 1], [3.3, 1], [3.8, 0]]));
-    if (s >= 1.85 && s < 1.85 + DUR.jump) {
-      jumpPose((s - 1.85) / DUR.jump, 150); FX.gsx *= JP.gsx; FX.gsy *= JP.gsy; FX.jy += JP.jy;
-      if (JP.land && once('chase', 'land')) emitLanding();
-      const i = sd > 0 ? 1 : 0, reach = kf(s, [[1.9, 0], [2.15, 1], [2.45, 1], [2.75, 0]]);   // 눈송이 쪽 팔 쭉
-      if (reach > 0.01) FX.arm[i] = armTo(i, reach, [sd * 560, CY - 1020, 160], [sd * 700, CY - 900, 160], SHOULDER[i]);
+  // 선물 열기 — 고봉밥 버전
+  const xg = mp('gift');
+  GS.on = xg >= 0;
+  if (GS.on) {
+    const s = xg * DUR.gift; GS.s = s; FX.calm = true;
+    GS.box = s < 9.9 ? easeOutBack(s / 0.9) : 1 - easeInOutCubic((s - 9.9) / 0.8);    // 1. 상자 쑥
+    if (s > 0.9 && s < 2.0) {                                                       // 2. 두근두근
+      const e = (s - 0.9) / 1.1, env = Math.sin(Math.PI * e);
+      FX.jy += 16 * env * Math.abs(Math.sin(2 * Math.PI * 3 * e));
+      FX.gsy *= 1 + 0.035 * env * Math.sin(2 * Math.PI * 6 * e); FX.gsx *= 1 - 0.02 * env * Math.sin(2 * Math.PI * 6 * e);
     }
-    if (s >= 2.75 && once('chase', 'miss')) { const v = STATE.headTopV || [871, 280]; glyphPart('?', v[0] + sd * 200, v[1] + 10, SNOW_B, { vy: -110 }); }
-    FX.headBusy = FX.calm = true;
-  }
-  // 꼬리 잡기: 꼬리 보고 → 빙글빙글 → 어질어질 휘청(@)
-  if ((x = mp('tailchase')) >= 0) {
-    s = x * DUR.tailchase;
-    const peek = kf(s, [[0, 0], [0.4, 1], [0.7, 1], [0.95, 0]]);
-    FX.hyaw += 0.45 * peek; FX.eyeDX += 14 * peek;
-    FX.yaw += 4 * Math.PI * easeInOutCubic((s - 0.6) / 2.0);
-    if (s > 0.8 && s < 2.6) FX.jy += 16 * Math.abs(Math.sin(2 * Math.PI * 2 * s));
-    FX.tail = Math.max(FX.tail, kf(s, [[0.5, 0], [0.8, 1], [2.6, 1], [3.0, 0]]));
-    const dz = kf(s, [[2.6, 0], [2.75, 1], [3.55, 1], [3.9, 0]]), wob = dz * Math.sin(2 * Math.PI * 1.4 * (s - 2.6));
-    if (dz > 0.5) FX.dizzy = 1;
-    if (s >= 2.6 && once('tailchase', 'dz')) { motions.bspin = clock; kickHat(1); }
-    FX.bodyRoll += 0.13 * wob; FX.hroll -= 0.12 * wob; FX.yaw += 0.08 * wob;
-    FX.headBusy = FX.calm = true;
-  }
-  // 콧노래: 살랑살랑 + ♪ ♫
-  if ((x = mp('hum')) >= 0) {
-    s = x * DUR.hum; const env = kf(s, [[0, 0], [0.4, 1], [3.8, 1], [4.2, 0]]), sd = sideOf('hum');
-    FX.yaw += 0.16 * env * Math.sin(2 * Math.PI * 0.8 * s); FX.hroll += 0.12 * env * Math.sin(2 * Math.PI * 0.8 * s + 0.5);
-    FX.gsy *= 1 + 0.02 * env * Math.sin(2 * Math.PI * 1.6 * s);
-    if (env > 0.5) FX.happy = Math.max(FX.happy, 1);
-    FX.tail = Math.max(FX.tail, 0.5 * env);
-    const n = Math.floor(s / 0.55);
-    if (s > 0.3 && s < 3.7 && once('hum', 'n' + n)) {
-      const v = STATE.headTopV || [871, 280], sg = n % 2 ? sd : -sd;
-      glyphPart(Math.random() < 0.5 ? '♪' : '♫', v[0] + sg * rnd(120, 300), v[1] + 20, NOTE_COLS[n % 4], { vx: sg * rnd(10, 40), vy: rnd(-110, -80), g: 0, life: 2.2, wob: 35 });
+    if (s >= 2.0 && s < 2.0 + DUR.jump) {                                           //    폴짝
+      jumpPose((s - 2.0) / DUR.jump); FX.gsx *= JP.gsx; FX.gsy *= JP.gsy; FX.jy += JP.jy;
+      if (JP.land && once('gift', 'land')) emitLanding();
     }
-    FX.headBusy = FX.calm = true;
-  }
-  // 박수: 짝짝짝 + 반짝이
-  if ((x = mp('clap')) >= 0) {
-    s = x * DUR.clap;
-    const w = kf(s, [[0, 0], [0.35, 1], [1.75, 1], [2.2, 0]]);
-    const open = s < 0.4 || s > 1.6 ? 1 : 0.5 + 0.5 * Math.cos(2 * Math.PI * (s - 0.4) / 0.4);
-    const half = 96 + 70 * open;
-    for (const i of [0, 1]) FX.arm[i] = armTo(i, w, [(i ? 1 : -1) * half, CY - 1290, 330], [0, CY - 1290, 330]);
-    [0.6, 1.0, 1.4].forEach((tc, k) => {
-      FX.jy += 10 * bump(s, tc - 0.05, 0.2);
-      if (s >= tc && once('clap', 'c' + k)) { emitSparkles(871, 1250, 9, 460, null, 0.55, 300, Math.PI * 1.4, -Math.PI / 2); kickHat(0.4); }
-    });
-    if (w > 0.5) FX.happy = Math.max(FX.happy, 1);
-    FX.calm = true;
-  }
-  // 딸꾹질: 딸꾹! × 3
-  if ((x = mp('hiccup')) >= 0) {
-    s = x * DUR.hiccup; const sd = sideOf('hiccup');
-    [0.4, 1.3, 2.2].forEach((tc, k) => {
-      FX.jy += 38 * bump(s, tc, 0.28); FX.gsy *= 1 + 0.07 * bump(s, tc, 0.12) - 0.05 * bump(s, tc + 0.15, 0.15);
-      FX.mouthO = Math.max(FX.mouthO, 0.55 * bump(s, tc, 0.2)); FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.25 * bump(s, tc, 0.35));
-      if (s >= tc && once('hiccup', 'h' + k)) {
-        kickHat(0.9); const v = STATE.headTopV || [871, 280];
-        glyphPart('!', v[0] + sd * (180 + 60 * k), v[1] + 30, C3(0xFF, 0xE0, 0x80), { vy: -200, g: 260, life: 0.9 });
-      }
-    });
-    FX.calm = true;
-  }
-  // 화면 쳐다보기: 얼굴 쭉 → 빤히 → 윙크
-  if ((x = mp('stare')) >= 0) {
-    s = x * DUR.stare; const k = kf(s, [[0, 0], [0.6, 1], [2.8, 1], [3.3, 0]]);
-    FX.headS = 1 + 0.1 * k; FX.headZ += 90 * k; FX.pitch += 0.05 * k; FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.12 * k);
-    FX.eyeClose = Math.max(FX.eyeClose, smooth(2.2, 2.35, s) * (1 - smooth(2.6, 2.75, s)));
-    if (s >= 2.35 && once('stare', 'h')) heartUp();
-    FX.headBusy = FX.calm = true;
-  }
-  // 뒹굴: 옆으로 기우뚱 → 오뚝이처럼 일어나기
-  if ((x = mp('roll')) >= 0) {
-    s = x * DUR.roll; const sd = sideOf('roll');
-    const r = s < 0.55 ? easeOutBack(s / 0.55) : s < 0.85 ? 1 : Math.exp(-2.8 * (s - 0.85)) * Math.cos(2 * Math.PI * 1.25 * (s - 0.85));
-    FX.bodyRoll += sd * 0.42 * r; FX.hroll -= sd * 0.08 * r;
-    const sur = kf(s, [[0, 0], [0.3, 1], [0.9, 1], [1.3, 0]]);
-    FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.25 * sur); FX.mouthO = Math.max(FX.mouthO, 0.4 * sur);
-    if (s >= 0.55 && once('roll', 'thud')) { emitSparkles(871 + sd * 300, 1640, 10, 420, null, 0.45, 1400, Math.PI * 0.9, -Math.PI / 2); kickHat(1.2); }
-    FX.calm = true;
-  }
-  // 깨어남: 콧방울 퐁 → 화들짝(눈 크게) → 두리번 → 헤헤
-  if ((x = mp('wake')) >= 0) {
-    s = x * DUR.wake;
-    FX.jy += 45 * bump(s, 0, 0.4); FX.gsy *= 1 + 0.08 * bump(s, 0, 0.25);
-    FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.35 * (1 - smooth(1.0, 1.4, s)));
-    FX.pitch += kf(s, [[0, 0.2], [0.15, -0.08], [0.6, 0]]);
-    const lr = kf(s, [[0.9, 0], [1.3, -1], [1.7, -1], [2.1, 1], [2.4, 1], [2.7, 0]]);
-    FX.hyaw += 0.4 * lr; FX.eyeDX += 14 * lr;
-    const hehe = kf(s, [[2.6, 0], [2.75, 1], [3.25, 1], [3.4, 0]]);
-    if (hehe > 0.5) FX.happy = Math.max(FX.happy, 1);
-    FX.mouthO = Math.max(FX.mouthO, 0.45 * (bump(s, 2.75, 0.22) + bump(s, 3.0, 0.22)));
-    if (s >= 2.8 && once('wake', 'h')) heartUp();
-    FX.headBusy = FX.calm = true;
+    GS.lidS = s - 2.69;                                                             //    착지하면 뚜껑 뻥
+    if (s >= 2.69 && once('gift', 'pop')) { emitSparkles(871, 1440, 14, 650, GOLD_RAY, 0.6, 900, Math.PI * 0.9, -Math.PI / 2); }
+    GS.rise = smooth(2.95, 4.4, s);                                                 // 3. 고봉밥 천천히 쑥
+    GS.rays = bump(s, 4.4, 1.0);                                                    // 4. 빛살 + 하트·별
+    if (s >= 4.4 && once('gift', 'burst')) {
+      emitHearts(6, false, 871, 1150);
+      emitSparkles(871, 1230, 14, 620, GOLD_RAY, 0.9, 350, Math.PI * 1.2, -Math.PI / 2);
+      emitSparkles(871, 1230, 8, 520, null, 0.8, 350, Math.PI * 1.4, -Math.PI / 2);
+    }
+    FX.happy = smooth(4.45, 4.55, s) * (1 - smooth(5.95, 6.05, s));                 // 5. ^ 눈, + 빙글, 날개, 콩콩
+    if (s >= 4.5 && once('gift', 'bspin')) motions.bspin = clock;
+    if (s >= 4.6 && once('gift', 'flap')) motions.flap = clock;
+    if (s >= 5.0 && s < 6.0) {
+      const u = ((s - 5.0) % 0.5) / 0.5;
+      FX.jy += 60 * Math.sin(Math.PI * u); FX.gsy *= 1 + 0.05 * Math.sin(Math.PI * u);
+      if (u > 0.85 && once('gift', s < 5.5 ? 'hop1' : 'hop2')) kickHat(0.7);
+    }
+    GS.steam = smooth(3.6, 4.3, s) * (1 - smooth(7.9, 8.7, s));                     // 6. 김 3초 → 냠!
+    FX.mouthO = Math.max(FX.mouthO, smooth(7.4, 7.65, s) * (1 - smooth(8.85, 9.0, s)), 0.5 * bump(s, 9.1, 0.28), 0.5 * bump(s, 9.45, 0.28));
+    GS.eat = easeInOutCubic((s - 7.8) / 1.1);
+    if (s > 7.8 && s < 8.85 && !FORCE && Math.random() < 0.7) {                     //    밥알이 입으로 쏙
+      const m = mouthAt(), top = STATE.riceTop || 1210, x = 871 + (Math.random() - 0.5) * 90, y = top + 10, T = 0.3;
+      particles.push({ heart: false, x, y, vx: (m[0] - x) / T, vy: (m[1] + 10 - y) / T, g: 0, age: 0, life: T, ph: 0, col: RICE, small: true });
+    }
+    FX.belly = bump(s, 9.0, 1.1);                                                   //    배 볼록
+    GS.bowlTw = bump(s, 9.1, 0.8);
+    GS.bowlS = 1 - easeInOutCubic((s - 9.35) / 0.55);                               //    그릇 반짝 사라짐
+    if (s >= 9.35 && once('gift', 'vanish')) {
+      emitSparkles(871, 1400, 16, 420, GOLD_RAY, 0.8, -60);
+      emitSparkles(871, 1400, 8, 300, null, 0.7, -60);
+    }
   }
 }
 
-// ── 오래 안 건드리면: 20초 꾸벅꾸벅 → 40초 쿨쿨 ──
-let lastInput = T_IDLE;
-const SLP = { on: false, t0: 0, zN: 0, dz: -1 };
-function anyActive() { for (const m in motions) if (DUR[m] !== undefined) return true; return false; }
-function idleSec() { return clock - lastInput; }
-function sleepFX() {
-  if (!built() || FREEZE && !QS.has('play')) return;
-  if (!SLP.on && idleSec() >= 40 && !anyActive() && !GF.on) { SLP.on = true; SLP.t0 = clock; SLP.zN = 0; }
-  if (SLP.on) {                                   // 쿨쿨: 두 눈 ∪, Z z z, 콧방울, 숨
-    const st = clock - SLP.t0, b = 0.5 + 0.5 * Math.sin(2 * Math.PI * st / 3.4 - Math.PI / 2), into = smooth(0, 1.2, st);
-    FX.pitch += 0.2 * into; FX.hroll += 0.08 * into; FX.sleepEye = st > 0.4 ? 1 : 0;
-    FX.eyeClose = Math.max(FX.eyeClose, smooth(0, 0.4, st));
-    FX.gsy *= 1 + 0.03 * b; FX.jy += 4 * b;
-    FX.bubble = st > 1.5 ? 14 + 38 * b : 0;
-    const zi = Math.floor((st - 1) / 1.2);
-    if (zi >= SLP.zN) {
-      SLP.zN = zi + 1;
-      const v = STATE.headTopV || [871, 280];
-      glyphPart(zi % 3 === 0 ? 'Z' : 'z', v[0] + 150, v[1] + 40, ZCOL, { vx: 35, vy: -55, g: 0, life: 2.6, wob: 25 });
-    }
-    FX.headBusy = FX.calm = true;
-    return;
-  }
-  const d = idleSec() - 20;
-  if (d >= 0 && !anyActive() && !GF.on) {         // 꾸벅꾸벅: 천천히 떨어졌다 번쩍
-    const u = (d % 3.6) / 3.6, n = Math.floor(d / 3.6);
-    const drop = Math.pow(smooth(0.05, 0.82, u), 1.5) * (1 - smooth(0.82, 0.86, u));
-    FX.pitch += 0.28 * drop; FX.hroll += 0.05 * drop;
-    FX.eyeClose = Math.max(FX.eyeClose, 0.85 * smooth(0.1, 0.7, u) * (1 - smooth(0.82, 0.85, u)));
-    FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.22 * bump(u, 0.84, 0.12));
-    FX.jy += 8 * bump(u, 0.83, 0.08);
-    if (u >= 0.83 && SLP.dz !== n) { SLP.dz = n; kickHat(0.8); }
-    FX.headBusy = FX.calm = true;
-  }
-}
-function wakeUp() {                               // 자는 중에 톡: 콧방울 퐁!
-  sfx('wake');
-  SLP.on = false; lastInput = clock;
-  const v = STATE.bubbleV || STATE.mouthView || [800, 880];
-  emitSparkles(v[0], v[1], 12, 420, BUBBLE, 0.5, 0); emitSparkles(v[0], v[1], 6, 300, null, 0.45, 0);
-  const h = STATE.headTopV || [871, 280];
-  glyphPart('!', h[0] - 160, h[1] + 30, C3(0xFF, 0xE0, 0x80), { vy: -220, g: 280, life: 0.9 });
-  kickHat(1.3);
-  trigger('wake', false);
-}
-// ── 쳐다보기: 빈 곳 톡 → 그쪽으로, 컴퓨터는 마우스 커서를 눈으로 따라가요 ──
-const LOOK = { x: 0, y: 0, t: -99 }, MOUSE = { x: 0, y: 0, t: -99 }, LS = { yaw: 0, pitch: 0, ex: 0, ey: 0, last: 0 };
-const HOVER = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-function lookFX() {
-  let tx = null, ty = 0, hk = 1;
-  if (!FX.headBusy && !SLP.on && !GF.on) {
-    if (clock - LOOK.t < 2.2) { tx = LOOK.x; ty = LOOK.y; }
-    else if (HOVER && clock - MOUSE.t < 4) { tx = MOUSE.x; ty = MOUSE.y; hk = 0.45; }   // 고개는 약간만, 눈 점은 그대로
-  }
-  const dx = tx === null ? 0 : (tx - 871) / 700, dy = tx === null ? 0 : (ty - 760) / 700;
-  const ty_ = clampV(dx, -1, 1) * 0.45 * hk, tp = clampV(dy, -1, 1) * 0.28 * hk;
-  const tex = tx === null ? 0 : clampV(dx * 1.6, -1, 1) * 14, tey = tx === null ? 0 : clampV(dy * 1.6, -1, 1) * 10;
-  const k = 1 - Math.exp(-Math.min(Math.max(clock - LS.last, 0), 0.1) * 7); LS.last = clock;
-  LS.yaw += (ty_ - LS.yaw) * k; LS.pitch += (tp - LS.pitch) * k; LS.ex += (tex - LS.ex) * k; LS.ey += (tey - LS.ey) * k;
-  FX.hyaw += LS.yaw; FX.pitch += LS.pitch; FX.eyeDX += LS.ex; FX.eyeDY += LS.ey;
-}
-function noteInput() {                            // 누르면: 잠 깨기 / 대기 모션 멈추고 바로 반응
-  const wasAsleep = SLP.on;
-  lastInput = clock; SLP.dz = -1;
-  if (wasAsleep) { wakeUp(); return true; }
-  for (const m of IDLE_NEW) if (m !== 'wake') delete motions[m];
-  return false;
-}
-
-// ── 자동 순서: 최근 3개는 피해서 랜덤, 모션 사이 1~2초는 숨만 쉬기 ──
-const POOL = ['jump', 'wave', 'flap', 'wink', 'bspin', 'tail', 'orb', 'catch', 'sneeze', 'spin',
-  'look', 'tilt', 'yawn', 'chase', 'tailchase', 'hum', 'clap', 'hiccup', 'stare', 'roll'];
-const IDLE_NEW = ['look', 'tilt', 'yawn', 'chase', 'tailchase', 'hum', 'clap', 'hiccup', 'stare', 'roll', 'wake'];
-const PLAY = QS.get('play');                      // 확인용: ?play=이름 → 그 모션만 되풀이
-let recent = [], waitGap = false, playT = 0;
-function playTick() {
-  if (!PLAY || !built()) return;
-  if (DUR[PLAY] !== undefined || PLAY === 'lookat') lastInput = clock;
-  if (PLAY === 'doze' && idleSec() < 20 || PLAY === 'doze' && idleSec() > 38) lastInput = clock - 20;
-  if ((PLAY === 'sleep' || PLAY === 'wake') && !SLP.on && !anyActive() && clock > playT) lastInput = clock - 41;
-  if (PLAY === 'wake' && SLP.on && clock - SLP.t0 > 4.5) { wakeUp(); playT = clock + 4.5; }
-  if (PLAY === 'lookat' && clock - LOOK.t > 2.6) { LOOK.x = rnd(250, 1500); LOOK.y = rnd(100, 1600); LOOK.t = clock; }
-}
+const AUTO = ['jump', 'wave', 'flap', 'wink', 'bspin', 'tail', 'orb', 'catch', 'sneeze'];
 function autoMotion() {
-  playTick();
   if (!built() || FREEZE) return;
   if (clock < T_IDLE + 3) { nextAuto = Math.max(nextAuto, T_IDLE + 3); return; }
-  if (anyActive()) { waitGap = true; return; }
-  if (waitGap) { waitGap = false; nextAuto = Math.max(nextAuto, clock + rnd(1, 2)); return; }   // 숨 쉬듯 가만히 1~2초
-  if (SLP.on || idleSec() >= 20) return;                                                   // 졸거나 자는 중
+  if (SOLO.some(isOn)) { nextAuto = Math.max(nextAuto, clock + 1.2); return; }
   if (clock < nextAuto) return;
-  let name;
-  if (PLAY) { if (DUR[PLAY] === undefined || PLAY === 'wake') return; name = PLAY; }
-  else if (clock - lastGift > 20 + Math.random() * 2 && !recent.includes('gift')) name = 'gift';   // 20초에 한 번쯤 선물
-  else { const pool = POOL.filter(m => !recent.includes(m)); name = pool[Math.random() * pool.length | 0]; }
-  trigger(name, false);
-  recent.push(name); if (recent.length > 3) recent.shift();
-  nextAuto = clock + 0.5;
+  if (isOn('jump') || isOn('wave') || isOn('spin')) return;
+  if (clock - lastGift > 20 + Math.random() * 2) trigger('gift', false);           // 20초에 한 번쯤 선물
+  else if (clock - lastSpecial > 9 + Math.random() * 3) { trigger('spin', false); lastSpecial = clock; }
+  else trigger(AUTO[Math.random() * AUTO.length | 0], false);
+  nextAuto = clock + 2 + Math.random();
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -1614,10 +806,9 @@ function drawCharacter(t, ta) {
   }
   const armRot = raise > 0 ? { th: armTh, px: RIGHT_SHOULDER[0] - CX, py: CY - RIGHT_SHOULDER[1], z: 330 * raise } : null;
   const xt = mp('tail');
-  let tailY = xt >= 0 ? 0.55 * Math.sin(2 * Math.PI * 2.5 * xt) * (1 - xt) : 0;
-  let tailZ = xt >= 0 ? 0.22 * Math.sin(2 * Math.PI * 2.5 * xt + 0.6) * (1 - xt) : 0;
-  if (FX.tail > 0) { tailY += 0.45 * FX.tail * Math.sin(2 * Math.PI * 2.4 * ta); tailZ += 0.16 * FX.tail * Math.sin(2 * Math.PI * 2.4 * ta + 0.6); }   // 신나게 살랑살랑
-  const tailRot = (xt >= 0 || FX.tail > 0) ? (() => { const M = rotZ(tailZ), N = rotY(tailY); return [
+  const tailY = xt >= 0 ? 0.55 * Math.sin(2 * Math.PI * 2.5 * xt) * (1 - xt) : 0;
+  const tailZ = xt >= 0 ? 0.22 * Math.sin(2 * Math.PI * 2.5 * xt + 0.6) * (1 - xt) : 0;
+  const tailRot = (xt >= 0) ? (() => { const M = rotZ(tailZ), N = rotY(tailY); return [
     M[0] * N[0] + M[1] * N[3] + M[2] * N[6], M[0] * N[1] + M[1] * N[4] + M[2] * N[7], M[0] * N[2] + M[1] * N[5] + M[2] * N[8],
     M[3] * N[0] + M[4] * N[3] + M[5] * N[6], M[3] * N[1] + M[4] * N[4] + M[5] * N[7], M[3] * N[2] + M[4] * N[5] + M[5] * N[8],
     M[6] * N[0] + M[7] * N[3] + M[8] * N[6], M[6] * N[1] + M[7] * N[4] + M[8] * N[7], M[6] * N[2] + M[7] * N[5] + M[8] * N[8]]; })() : null;
@@ -1695,8 +886,6 @@ function drawCharacter(t, ta) {
   // ── 팔 + 발톱 ──
   ['arm_l', 'arm_r'].forEach((name, i) => {
     if (t < REVEAL[name][0]) return;
-    const AR = GF.arm[i] || FX.arm[i];
-    if (AR) { tubeArm(AR.sh, AR.paw, AR.to); return; }      // 사발 껴안기·기지개·박수 팔
     const sgn = i === 0 ? -1 : 1, rot = i === 1 ? armRot : null;
     hitArm(i === 1, body_sy, rot, (k, tt, py, u) => {
       revealMask(py, name, t, 1524, HEAD_BOT - 20);
@@ -1732,16 +921,9 @@ function drawCharacter(t, ta) {
       sx = s * (1 + sq); sy = s * (1 - sq);
     }
   }
-  sx *= FX.headS; sy *= FX.headS;
   if (sx < 0.02) return;
-  const HB = [FX.headX, CY - HEAD_BOT + head_dy, FX.headZ], SH = [sx, sy, sx];
-  // 목을 축으로: 고개 돌리기(yaw) · 갸웃(roll) · 까딱(pitch)
-  const Rp = mm3(rotY(FX.hyaw), mm3(rotZ(FX.hroll), rotAxis([1, 0, 0], FX.pitch)));
-  const rotN = v => mv(Rp, v);
-  const hxf = p => {                                  // 머리 좌표 → 캐릭터 좌표 (목 축으로 까딱)
-    const v = [sx * (p[0] - NECK[0]), sy * (p[1] - (CY - HEAD_BOT) - NECK[1]), sx * (p[2] - NECK[2])], w = rotN(v);
-    return [HB[0] + sx * NECK[0] + w[0], HB[1] + sy * NECK[1] + w[1], HB[2] + sx * NECK[2] + w[2]];
-  };
+  const HB = [0, CY - HEAD_BOT + head_dy, 0], SH = [sx, sy, sx];
+  const hxf = p => [HB[0] + sx * p[0], HB[1] + sy * (p[1] - (CY - HEAD_BOT)), HB[2] + sx * p[2]];
 
   // 윙크: 0 = 뜬 눈, 1 = 감은 눈(짧은 곡선)
   let closed = STILL ? 0 : Math.max(bump(t, T_IDLE + 0.8, 0.4), bump(t, T_LEYE + 2.4, 0.3)) * 0.85;
@@ -1756,10 +938,9 @@ function drawCharacter(t, ta) {
   const sE = pop(t, T_LEYE), flE = flash(t, T_LEYE) * 0.6, sB = pop(t, T_LEYE + 0.15);
   // 입: mo < 0.3 이면 웃는 입, 넘으면 동그란 입(송곳니는 동그란 입 오른쪽 아래에 붙어 따라가요)
   const mo = FX.mouthO, oMouth = mo >= 0.3 && mpr >= 1, oe = 0.45 + 0.55 * smooth(0.3, 1, mo);
-  const orx = MO_R[0] * oe * FX.mouthBig, ory = MO_R[1] * oe * FX.mouthBig, oavg = (orx + ory) / 2;
-  const lickX = FX.lick >= 0 ? 1105 + 28 * Math.sin(FX.lick * Math.PI * 3) : 0, lickR = FX.lick >= 0 ? 40 * Math.sin(Math.PI * Math.min(FX.lick, 1)) : 0;
+  const orx = MO_R[0] * oe, ory = MO_R[1] * oe, oavg = (orx + ory) / 2;
   const fangC = oMouth ? [MO_C[0] + 0.57 * orx, MO_C[1] + 0.82 * ory - 8] : FANG_C, fangS = oMouth ? 0.7 : 1;
-  hitHeadRot(HB, sx, sy, Rp, (k, tt, lx, ly, lz, Cw) => {
+  hitHead(HB, sx, sy, (k, tt, lx, ly, lz, Cw) => {
     const px = CX + lx, py = HEAD_BOT - ly, front = lz > 0.15 * Cw;
     let L = PINK, Sh = PINK_SHADE, D = PINK_DEEP, f = fHead, brown = false, fangW = false;
     if (t >= T_FACE) {
@@ -1774,15 +955,11 @@ function drawCharacter(t, ta) {
         if (Math.abs(px - MO_C[0]) < orx + MOUTH_W + 4 && Math.abs(py - MO_C[1]) < ory + MOUTH_W + 4) {
           const dn = Math.hypot((px - MO_C[0]) / orx, (py - MO_C[1]) / ory);
           if (Math.abs(dn - 1) * oavg <= MOUTH_W * 0.95) brown = true;
-          else if (dn < 1) {
-            L = MOUTH_IN; Sh = MOUTH_IN_SH; D = MOUTH_IN_SH;
-            if (FX.tongue && ((px - MO_C[0] - 0.08 * orx) / (0.72 * orx)) ** 2 + ((py - MO_C[1] - 0.55 * ory) / (0.6 * ory)) ** 2 < 1) { L = TONGUE; Sh = TONGUE_SH; D = TONGUE_SH; }
-          }
+          else if (dn < 1) { L = MOUTH_IN; Sh = MOUTH_IN_SH; D = MOUTH_IN_SH; }
         }
       } else if (mpr > 0 && px > 520 && px < 1200 && py > 920 && py < 1090) {
         polyDist(MOUTH, px, py);
         if (PD.d <= MOUTH_W && PD.u <= mpr) { brown = true; if (mpr < 1) f += clamp01(1 - (mpr - PD.u) / 0.1) * 0.6; }
-        else if (lickR > 2 && ((px - lickX) / lickR) ** 2 + ((py - 1028) / (lickR * 0.85)) ** 2 < 1) { L = TONGUE; Sh = TONGUE_SH; D = TONGUE_SH; }   // 낼름
       }
       if (sF > 0) {
         const fs = sF * fangS, fx = (px - fangC[0]) / fs, fy = (py - fangC[1]) / fs, hw = FANG_HW * (1 - fy / FANG_H);
@@ -1793,14 +970,11 @@ function drawCharacter(t, ta) {
           f += flF;
         }
       }
-      const ex = px - FX.eyeDX, ey = py - FX.eyeDY;                       // 눈 점만 살짝 움직여요
-      if (sE > 0 && Math.abs(ex - LEYE_C[0]) < 80 && Math.abs(ey - LEYE_C[1]) < 60) {
+      if (sE > 0 && Math.abs(px - LEYE_C[0]) < 70 && Math.abs(py - LEYE_C[1]) < 50) {
         let eye;
-        if (FX.sleepEye > 0.5 && sE >= 1) { polyDist(SLEEP_EYE, ex, ey); eye = PD.d <= WINK_W; }      // 잠든 눈 ∪
-        else if (FX.dizzy > 0.5 && sE >= 1) { const dd = Math.hypot(ex - LEYE_C[0], (ey - LEYE_C[1]) * 1.15); eye = Math.abs(dd - 38) < 9.5 || dd < 10; }   // 어질어질 @
-        else if (happy && sE >= 1) { polyDist(HAPPY, ex, ey); eye = PD.d <= WINK_W; }        // ^ 웃는 눈
-        else if (openv < 0.3) { polyDist(WINK, ex, ey); eye = PD.d <= WINK_W; }
-        else { const rx = LEYE_R[0] * sE * FX.eyeBig, ry = Math.max(LEYE_R[1] * sE * openv * FX.eyeBig, 1); eye = ((ex - LEYE_C[0]) / rx) ** 2 + ((ey - LEYE_C[1]) / ry) ** 2 <= 1; }
+        if (happy && sE >= 1) { polyDist(HAPPY, px, py); eye = PD.d <= WINK_W; }        // ^ 웃는 눈
+        else if (openv < 0.3) { polyDist(WINK, px, py); eye = PD.d <= WINK_W; }
+        else { const rx = LEYE_R[0] * sE, ry = Math.max(LEYE_R[1] * sE * openv, 1); eye = ((px - LEYE_C[0]) / rx) ** 2 + ((py - LEYE_C[1]) / ry) ** 2 <= 1; }
         if (eye) { brown = true; f += flE; }
       }
       if (sB > 0 && Math.abs(px - BROW_C[0]) < 80 && Math.abs(py - BROW_C[1]) < 50) {
@@ -1818,22 +992,6 @@ function drawCharacter(t, ta) {
   });
 
   STATE.mouthView = toView(hxf(P(MO_C[0], MO_C[1], 380)));
-  STATE.headTopV = toView(hxf(P(CX, HEAD_TOP, 0)));
-  STATE.leyeV = toView(hxf(P(LEYE_C[0], LEYE_C[1], 400))); STATE.reyeV = toView(hxf(P(REYE_C[0], REYE_C[1], 400)));
-  { const A = headA(HEAD_BOT - 930), x = 590 - CX, zf = H_DEPTH * A * Math.sqrt(Math.max(0, 1 - (x / A) ** 2));
-    STATE.cheekV = toView(hxf(P(590, 930, zf + 10))); }
-  STATE.bubbleV = null;
-  if (FX.bubble > 1) {                                 // 코에 콧방울 (가운데는 투명, 테두리만)
-    const A = headA(HEAD_BOT - 880), x = 790 - CX, zf = H_DEPTH * A * Math.sqrt(Math.max(0, 1 - (x / A) ** 2));
-    const r = FX.bubble, bc = hxf(P(790, 880, zf + r * 0.95));
-    ellipsoid(bc, [r * sx, r * sy, r * sx], null, null, (k, tt) => {
-      const nz = VN[2], hl = VN[0] < -0.15 && VN[1] > 0.2 && nz > 0.45;
-      if (nz > 0.6 && !hl) return;
-      lit(VN[0], VN[1], VN[2], BUBBLE, BUBBLE, BUBBLE, -0.3, 0.5, null); if (hl) flashLO(0.7);
-      put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_FACE);
-    });
-    STATE.bubbleV = toView(bc);
-  }
 
   // ── 오른쪽 단추 눈 ──
   let s = pop(t, T_REYE, 0.6);
@@ -1844,20 +1002,8 @@ function drawCharacter(t, ta) {
     let spin = (1 - easeOutCubic((t - T_REYE) / 0.8)) * 2.5 * 2 * Math.PI;
     const xb = mp('bspin'); if (xb >= 0) spin += 2 * Math.PI * easeInOutCubic(xb);
     const cs = Math.cos(spin), sn = Math.sin(spin), fl = flash(t, T_REYE, 0.4) * 0.5;
-    ellipsoid(hxf(P(REYE_C[0], REYE_C[1], zf + 4)), [REYE_R * s, REYE_R * s, REYE_D * s], mm3(Rp, rotY(tilt)), SH, (k, tt, qx, qy) => {
+    ellipsoid(hxf(P(REYE_C[0], REYE_C[1], zf + 4)), [REYE_R * s, REYE_R * s, REYE_D * s], rotY(tilt), SH, (k, tt, qx, qy) => {
       const ux = cs * qx + sn * qy, uy = -sn * qx + cs * qy;
-      if (FX.sleepEye > 0.5) {                   // 잠: 연두 단추가 ∪ 모양으로
-        const d1 = segD(qx, qy, -0.8, 0.12, 0, -0.38), d2 = segD(qx, qy, 0, -0.38, 0.8, 0.12);
-        if (Math.min(d1, d2) > 0.2) return;
-        lit(VN[0], VN[1], VN[2], LIME, LIME_SHADE, LIME_SHADE, 0, 0.35, LIME_HI);
-        put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_FACE); return;
-      }
-      if (FX.happy2 > 0.5) {                     // ^^ : 연두 단추가 ^ 모양으로
-        const d1 = segD(qx, qy, -0.8, -0.32, 0, 0.42), d2 = segD(qx, qy, 0, 0.42, 0.8, -0.32);
-        if (Math.min(d1, d2) > 0.2) return;
-        lit(VN[0], VN[1], VN[2], LIME, LIME_SHADE, LIME_SHADE, 0, 0.35, LIME_HI);
-        put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_FACE); return;
-      }
       const plus = (Math.abs(ux - 0.03) < 0.135 && Math.abs(uy) < 0.62) || (Math.abs(uy) < 0.135 && Math.abs(ux - 0.03) < 0.58);
       if (plus) lit(VN[0], VN[1], VN[2], GREEN_DARK, GREEN_DARK2, GREEN_DARK2, 0, 0.1, null);
       else {
@@ -1881,11 +1027,10 @@ function drawCharacter(t, ta) {
     let flap = 0;
     if (!STILL) for (const t0 of [T_WING + 0.85, T_IDLE + 1.5]) if (t >= t0 && t <= t0 + 0.8) flap += 0.45 * Math.sin(2 * Math.PI * (t - t0) / 0.4);
     const xf = mp('flap'); if (xf >= 0) flap += 0.6 * Math.sin(2 * Math.PI * 4 * xf) * (1 - 0.3 * xf);
-    flap += FX.wing;
     const O = hxf(P(WING_ROOT[0], WING_ROOT[1], WING_Z));
     const Rf = rotAxis([0.35, 1, 0], -flap);
     let ex = mv(Rf, [1, 0, Math.tan(WING_TILT * Math.PI / 180)]), ey = mv(Rf, [0, 1, 0]);
-    ex = rotN([ex[0] * sx, ex[1] * sy, ex[2] * sx]); ey = rotN([ey[0] * sx, ey[1] * sy, ey[2] * sx]);
+    ex = [ex[0] * sx, ex[1] * sy, ex[2] * sx]; ey = [ey[0] * sx, ey[1] * sy, ey[2] * sx];
     let pn = norm3([ex[1] * ey[2] - ex[2] * ey[1], ex[2] * ey[0] - ex[0] * ey[2], ex[0] * ey[1] - ex[1] * ey[0]]);
     viewN(pn[0], pn[1], pn[2]); if (VN[2] < 0) pn = [-pn[0], -pn[1], -pn[2]];
     viewN(pn[0], pn[1], pn[2]); const PNV = [VN[0], VN[1], VN[2]];
@@ -1921,7 +1066,7 @@ function drawCharacter(t, ta) {
   STATE.orbView = null;
   if (s > 0) {
     const kc = hxf(P(KNOB_C[0], KNOB_C[1], 75));
-    ellipsoid(kc, KNOB_R.map(v => v * Math.min(1, s * 1.5)), mm3(Rp, rotZ(KNOB_TILT * Math.PI / 180)), SH, (k, tt) => {
+    ellipsoid(kc, KNOB_R.map(v => v * Math.min(1, s * 1.5)), rotZ(KNOB_TILT * Math.PI / 180), SH, (k, tt) => {
       lit(VN[0], VN[1], VN[2], PINK, PINK_SHADE, PINK_DEEP, 0, 0.04, PINK_HI);
       put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_ORB);
     });
@@ -1970,7 +1115,7 @@ function drawCharacter(t, ta) {
     const ang = HAT_TILT + 0.6 * fall, ca = Math.cos(ang), sa = Math.sin(ang);
     const sqx = 1 + 0.6 * sq, sqy = 1 - sq;
     const base = hxf(P(HAT_C[0], HAT_C[1], 0)); base[1] += 1000 * fall;
-    const H2C = (lx, ly, lz = 0) => { lx *= sqx * sx; ly *= sqy * sy; const w = rotN([ca * lx + sa * ly, -sa * lx + ca * ly, lz * sx]); return [base[0] + w[0], base[1] + w[1], base[2] + w[2]]; };
+    const H2C = (lx, ly, lz = 0) => { lx *= sqx * sx; ly *= sqy * sy; return [base[0] + ca * lx + sa * ly, base[1] - sa * lx + ca * ly, base[2] + lz * sx]; };
     const w = STILL ? 0 : hatWob(ta), wx = -9 * w, wy = -24 * w;       // 방울 통통
     const fl = flash(t, T_HAT_LAND, 0.3) * 0.5, Rz = rotZ(-ang);
     const red = (k, tt) => {
@@ -1987,63 +1132,10 @@ function drawCharacter(t, ta) {
       HAT_CONE_R * hs, red, HAT_CUT);
     ellipsoid(H2C(HAT_JOINT[0], HAT_JOINT[1]), [HAT_JOINT_R * hs, HAT_JOINT_R * hs, HAT_JOINT_R * hs], null, null, red);
     cone(H2C(HAT_JOINT[0], HAT_JOINT[1]), H2C(HAT_TIP[0] + 0.8 * wx, HAT_TIP[1] + 0.8 * wy), HAT_JOINT_R * hs, red);
-    ellipsoid(H2C(0, 0), [HAT_BRIM[0] * sqx * sx, HAT_BRIM[1] * sqy * sy, HAT_BRIM[2] * sx], mm3(Rp, Rz), null, fur);
+    ellipsoid(H2C(0, 0), [HAT_BRIM[0] * sqx * sx, HAT_BRIM[1] * sqy * sy, HAT_BRIM[2] * sx], Rz, null, fur);
     const pc = H2C(HAT_POM[0] + wx, HAT_POM[1] + wy), pr = HAT_POM_R * sx * (1 + 0.05 * Math.abs(w));
     ellipsoid(pc, [pr, pr, pr], null, null, fur);
     STATE.pomView = toView(pc);
-  }
-
-  // ── 고봉밥 사발 ──
-  STATE.riceTopV = null;
-  if (GF.on && GF.bowl.on) drawBowl();
-}
-function drawBowl() {
-  const { c, R, s: bs } = GF.bowl, tw = GF.tw;
-  ellipsoid(c, [BOWL2[0] * bs, BOWL2[1] * bs, BOWL2[2] * bs], R, null, (k, tt, qx, qy) => {
-    if (qy > 0) return;                                          // 아래 반쪽 = 사발
-    let L = BOWL_C, Sh = BOWL_SH, D = BOWL_DEEP, mk = 0;
-    if (qy > -0.08) { L = BOWL_LO; Sh = BOWL_C; D = BOWL_SH; mk = MARK_BRIM; }          // 밝은 테두리
-    else if (qy > -0.36 && qy < -0.22) { L = WHITE; Sh = WHITE_SHADE; D = WHITE_DEEP; mk = MARK_CLOUD; }   // 흰 줄
-    lit(VN[0], VN[1], VN[2], L, Sh, D, -0.25, 0.3, null); flashLO(tw * 0.6);
-    put(k, tt, LO[0], LO[1], LO[2], LO[3], mk, PART_GIFT);
-  });
-  const h = GF.hShow;
-  if (h < 0.03) return;
-  const rice = (k, tt, qx, qy, qz) => {
-    const n = 0.5 + 0.5 * Math.sin(qx * 31 + qy * 17) * Math.sin(qz * 27 - qy * 23);   // 밥알 오돌토돌
-    lit(VN[0], VN[1], VN[2], RICE, RICE_SH, RICE_DEEP, 0.2 * n, 0.12, null); flashLO(tw * 0.4);
-    put(k, tt, LO[0], LO[1], LO[2], LO[3], MARK_RICE, PART_GIFT);
-  };
-  const dh = RICE_DOME[1] * h * bs;
-  ellipsoid(c, [RICE_DOME[0] * bs, dh, RICE_DOME[2] * bs], R, null, (k, tt, qx, qy, qz) => { if (qy >= 0) rice(k, tt, qx, qy, qz); });
-  const grow = 0.45 + 0.55 * Math.min(h, 1.15);
-  for (const [bx, yf, bz, br] of GF.bumps) {                       // 몽글몽글 덩이
-    const ly = yf * dh, rr = br * bs * grow, o = mv(R, [bx * bs * (0.7 + 0.3 * Math.min(h, 1)), ly, bz * bs * (0.7 + 0.3 * Math.min(h, 1))]);
-    ellipsoid([c[0] + o[0], c[1] + o[1], c[2] + o[2]], [rr, rr * 0.88, rr], R, null, (k, tt, qx, qy, qz) => {
-      if (ly + qy * rr * 0.88 < -8 * bs) return;                    // 테두리 아래로는 안 내려가게
-      rice(k, tt, qx, qy, qz);
-    });
-  }
-  const up = mv(R, [0, 1, 0]), top = dh + 112 * bs * grow;
-  STATE.riceTopV = toView([c[0] + up[0] * top, c[1] + up[1] * top, c[2] + up[2] * top]);
-}
-// 껴안는 팔: 어깨(가늘게) → 손(동그랗게) + 하얀 발톱 둘 (원래 팔과 같은 분홍·빛)
-function tubeArm(sh, paw, to) {
-  const rp = 96, rs = 44;
-  const dx = sh[0] - paw[0], dy = sh[1] - paw[1], dz = sh[2] - paw[2], L = Math.hypot(dx, dy, dz) || 1;
-  const Lt = L * rp / (rp - rs), ap = [paw[0] + dx / L * Lt, paw[1] + dy / L * Lt, paw[2] + dz / L * Lt];
-  const pink = (k, tt) => { lit(VN[0], VN[1], VN[2], PINK, PINK_SHADE, PINK_DEEP, 0, 0.04, PINK_HI); put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_ARM); };
-  cone(paw, ap, rp * 0.97, pink, Math.min(L / Lt, 1));
-  ellipsoid(paw, [rp, rp * 0.94, rp], null, null, pink);
-  let fx = to[0] - paw[0], fy = to[1] - paw[1] + 0.9 * (Math.hypot(to[0] - paw[0], to[2] - paw[2]) || 1), fz = to[2] - paw[2];
-  let fl = Math.hypot(fx, fy, fz) || 1; fx /= fl; fy /= fl; fz /= fl;          // 발톱은 테두리 위로 걸치듯
-  let sx = -fz, sz = fx; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
-  for (const sg of [-1, 1]) {
-    const b = [paw[0] + fx * rp * 0.78 + sx * sg * rp * 0.32, paw[1] + fy * rp * 0.78, paw[2] + fz * rp * 0.78 + sz * sg * rp * 0.32];
-    cone(b, [b[0] + fx * 58, b[1] + fy * 58, b[2] + fz * 58], 26, (k, tt) => {
-      lit(VN[0], VN[1], VN[2], WHITE, WHITE_SHADE, WHITE_DEEP, 0, 0.25, null);
-      put(k, tt, LO[0], LO[1], LO[2], LO[3], MARK_SPIKE, PART_ARM);
-    });
   }
 }
 
@@ -2054,26 +1146,28 @@ function tubeArm(sh, paw, to) {
 //  선물 상자 · 고봉밥 (세상에 고정 — 캐릭터가 점프·흔들려도 그대로)
 // ═════════════════════════════════════════════════════════════════════
 function drawGift(t, ta) {
-  if (!GF.on || (GF.box <= 0 && GF.lidS > 1.8)) return;
+  if (!GS.on) return;
   setRays(0, 1, 1, 0);
   const groundY = CY - 1652;
-  const bc = P(871, 1652 - BOX_H[1] + 280 * (1 - GF.box), BOX_Z), band = 30;
+  const bc = P(871, 1652 - BOX_H[1] + 200 * (1 - GS.box), BOX_Z);
+  const band = 20;
   const shadeBox = (fa, lx, ly, lz, isTop) => {     // 빨간 상자 + 금색 리본
     const rib = fa === 0 ? Math.abs(lz) < band : fa === 2 ? Math.abs(lx) < band : (Math.abs(lx) < band || Math.abs(lz) < band);
     if (rib) lit(VN[0], VN[1], VN[2], GOLD, GOLD_SH, GOLD_DEEP, 0, 0.3, GOLD_HI);
     else lit(VN[0], VN[1], VN[2], RED, RED_SH, RED_DEEP, isTop ? 0 : 0.05, 0.08, RED_HI);
   };
-  if (GF.box > 0) hitOBB(bc, BOX_H, I3, (k, tt, lx, ly, lz, fa) => {
+  // 상자 몸통 (땅 아래는 안 보임)
+  hitOBB(bc, BOX_H, I3, (k, tt, lx, ly, lz, fa) => {
     if (bc[1] + ly < groundY) return;
     shadeBox(fa, lx, ly, lz, false);
     put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_GIFT);
   });
-  // 뚜껑 + 리본 매듭: 뻥 튀어 올라 빙글빙글 날아가요
-  const ls = GF.lidS;
-  if (ls < 1.8 && (ls > 0 || GF.box > 0)) {
+  // 뚜껑 + 리본 매듭: 착지하면 뻥 튀어 올라 빙글빙글 날아가요
+  const ls = GS.lidS;
+  if (ls < 1.8) {
     let lc = [bc[0], bc[1] + BOX_H[1] + LID_H[1] - 6, bc[2]], Rl = I3;
     if (ls > 0) {
-      lc = [lc[0] - 340 * ls, lc[1] + 1250 * ls - 380 * ls * ls, lc[2] + 80 * ls];
+      lc = [lc[0] - 320 * ls, lc[1] + 1150 * ls - 380 * ls * ls, lc[2] + 80 * ls];
       Rl = mm3(rotZ(5.5 * ls), rotAxis([1, 0, 0.3], 3.2 * ls));
     }
     hitOBB(lc, LID_H, Rl, (k, tt, lx, ly, lz, fa) => {
@@ -2083,518 +1177,38 @@ function drawGift(t, ta) {
     });
     const ribbon = (k, tt) => { lit(VN[0], VN[1], VN[2], GOLD, GOLD_SH, GOLD_DEEP, 0, 0.35, GOLD_HI); put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_GIFT); };
     for (const sg of [-1, 1]) {
-      const off = mv(Rl, [sg * 68, LID_H[1] + 36, 0]);
-      ellipsoid([lc[0] + off[0], lc[1] + off[1], lc[2] + off[2]], [78, 40, 32], mm3(Rl, rotZ(sg * 0.45)), null, ribbon);
+      const off = mv(Rl, [sg * 44, LID_H[1] + 26, 0]);
+      ellipsoid([lc[0] + off[0], lc[1] + off[1], lc[2] + off[2]], [50, 28, 22], mm3(Rl, rotZ(sg * 0.45)), null, ribbon);
     }
-    const ko = mv(Rl, [0, LID_H[1] + 24, 0]);
-    ellipsoid([lc[0] + ko[0], lc[1] + ko[1], lc[2] + ko[2]], [34, 30, 30], Rl, null, ribbon);
+    const ko = mv(Rl, [0, LID_H[1] + 18, 0]);
+    ellipsoid([lc[0] + ko[0], lc[1] + ko[1], lc[2] + ko[2]], [24, 22, 22], Rl, null, ribbon);
   }
-}
-
-// ═════════════════════════════════════════════════════════════════════
-//  고양이 친구 — 민트(MINT, 회색 러시안 블루) · 코하쿠(KOHAKU, 치즈 줄무늬)
-//  드래곤과 같은 말랑 피규어 방식: 타원체·원뿔을 광선으로 맞추고 같은 빛·글자로 그려요
-// ═════════════════════════════════════════════════════════════════════
-const PART_MINT = 8, PART_KOHAKU = 9;
-const rotX = a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
-const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-// 색 [밝은 쪽, 그늘, 깊은 그늘, 하이라이트]
-const CPAL = {
-  mint: {
-    fur: [C3(0xB6, 0xC0, 0xD2), C3(0x8C, 0x96, 0xAC), C3(0x68, 0x70, 0x88), C3(0xD6, 0xDE, 0xEC)],
-    light: [C3(0xCE, 0xD6, 0xE4), C3(0xA6, 0xAE, 0xC2), C3(0x82, 0x8A, 0xA0), C3(0xE6, 0xEC, 0xF6)],     // 주둥이·배·발끝
-    earIn: [C3(0x6E, 0x70, 0x80), C3(0x58, 0x5A, 0x68), C3(0x46, 0x48, 0x54), null],
-    stripe: null, iris: 11, nose: 14, line: 16,
-  },
-  kohaku: {
-    fur: [C3(0xFF, 0xB4, 0x62), C3(0xEA, 0x8C, 0x3E), C3(0xC4, 0x6A, 0x26), C3(0xFF, 0xD4, 0x98)],
-    light: [C3(0xFF, 0xF0, 0xD8), C3(0xF2, 0xD4, 0xB0), C3(0xD8, 0xB4, 0x8C), C3(255, 255, 255)],     // 크림색 턱·가슴·발
-    earIn: [C3(0xFF, 0xB6, 0xAA), C3(0xEA, 0x96, 0x8E), C3(0xCA, 0x76, 0x72), null],
-    stripe: [C3(0xE2, 0x7E, 0x30), C3(0xC4, 0x62, 0x1E), C3(0x9C, 0x48, 0x12), null],
-    iris: 12, nose: 15, line: 17,
-  },
-};
-const SCARF = [C3(0x4C, 0xCC, 0x68), C3(0x2C, 0x9C, 0x48), C3(0x1C, 0x6E, 0x32), C3(0x9C, 0xF0, 0xA8)];
-const RIBBON = [RED, RED_SH, RED_DEEP, RED_HI], BELL = [GOLD, GOLD_SH, GOLD_DEEP, GOLD_HI];
-const CAT_HEAD = [165, 140, 132];
-const CAT_GROUND = CY - 1768;
-const CATX = { surpT: -99 };
-const CATSOLO = QS.has('catsolo');                 // 확인용: 고양이만 그리기
-
-const CATS = [];
-function mkCat(o) {
-  const c = Object.assign({ mode: 'out', x: 0, z: 0, lift: 0, act: null, actT: 0, next: 0, last: '', blinkT: -9, blinkNext: 0,
-    mv: null, poseNow: 'sit', happyT: -9, wideT: -9, zT: 0, topV: null, whisk: null, stoleFor: -99, hopFor: -99, batFor: -99, faceDir: 0 }, o);
-  CATS.push(c); return c;
-}
-const MINT = mkCat({ id: 'mint', ko: '민트', col: C3(0x7F, 0xE0, 0xC8), css: '#7FE0C8', part: PART_MINT, homeX: 1335 - CX, homeZ: 300, rest: 'lie',
-  sleepX: 1190 - CX, enterT: T_RING + 2.4, fromX: 2150 - CX, acts: ['wag', 'ear', 'yawn', 'groom', 'stretch', 'roll', 'roll'] });
-const KOHAKU = mkCat({ id: 'kohaku', ko: '코하쿠', col: C3(0xFF, 0xB3, 0x47), css: '#FFB347', part: PART_KOHAKU, homeX: 335 - CX, homeZ: 650, rest: 'sit',
-  sleepX: 560 - CX, enterT: T_RING + 1.55, fromX: -380 - CX, acts: ['wag', 'ear', 'yawn', 'groom', 'stretch', 'look', 'look', 'swat'] });
-const CAT_DUR = { wag: 2.2, ear: 1.0, yawn: 2.4, groom: 3.0, stretch: 2.6, roll: 3.6, look: 3.0, swat: 2.0, bat: 1.9, hop: 1.0, purr: 3.0 };
-const catByPart = p => p === PART_MINT ? MINT : p === PART_KOHAKU ? KOHAKU : null;
-
-// ── 이름표: 이름 → (0.6초 뒤) ニャン. 두 칸 글자는 칸에 맞춰 크게 그려요 ──
-// ── 고양이 아이콘: 머리 옆 빈 곳에 작은 아스키아트(발바닥·하트·물결·입김·땀방울·음표)가 퐁 떴다 둥실 ──
-// 반짝이처럼 빛(gI)으로 그려서 겹치면 밝아지고, 캐릭터·고양이가 있는 칸에는 안 그려요(얼굴을 안 가려요)
-const ICONS = [];
-function catIcon(cat, kind, o = {}) {
-  const v = o.at || cat.topV || catGroundV(cat), side = cat === KOHAKU ? -1 : 1;     // 드래곤 반대쪽 옆 (민트는 머리 위 빈 하늘)
-  const dx = o.dx ?? (cat === KOHAKU ? 170 : 70), dy = o.dy ?? (cat === KOHAKU ? 80 : -20);
-  ICONS.push(Object.assign({ cat, kind, t0: clock + (o.delay || 0), life: 1.7, x: v[0] + side * dx, y: v[1] + dy, sc: 1, ph: Math.random() * 6 }, o));
-  if (!o.delay && kind !== 'heart') cat.lastIcon = kind;
-}
-function pickIcon(cat, opts) {                    // 같은 아이콘이 연달아 나오지 않게
-  let pool = opts.filter(k => k !== cat.lastIcon); if (!pool.length) pool = opts;
-  const k = pool[Math.random() * pool.length | 0]; cat.lastIcon = k; return k;
-}
-function catTapIcon(cat) {                        // 톡: 발바닥(가끔 작은 하트)
-  const k = cat.lastIcon === 'paw' ? (Math.random() < 0.5 ? 'heart' : 'paw2') : (Math.random() < 0.75 ? 'paw' : 'heart');
-  catIcon(cat, k === 'paw2' ? 'paw' : k, { sc: k === 'heart' ? 0.7 : 1 }); cat.lastIcon = k === 'paw2' ? 'paw2' : k;
-  cat.iconNext = clock + rnd(10, 18);
-}
-// 모양: 사진 px(아이콘 가운데 기준, 아래가 +y) → 0~1 밝기
-const softDisc = (x, y, cx, cy, rx, ry) => 1 - smooth(0.75, 1.15, Math.hypot((x - cx) / rx, (y - cy) / ry));
-function iconField(kind, x, y, age, ph) {
-  if (kind === 'paw') {
-    let f = softDisc(x, y, 0, 24, 40, 30);
-    for (const [cx, cy] of [[-46, -22], [-17, -48], [17, -48], [46, -22]]) f += softDisc(x, y, cx, cy, 15, 18);
-    return f;
-  }
-  if (kind === 'heart') {
-    const X = x / 52, Y = -y / 52 + 0.15, h = (X * X + Y * Y - 1) ** 3 - X * X * Y * Y * Y;
-    return clamp01(0.5 - h * 6);
-  }
-  if (kind === 'waves') {                         // ~ 세 줄이 살랑살랑
-    let f = 0;
-    for (const row of [-38, 0, 38]) {
-      if (Math.abs(x) > 62) continue;
-      const d = Math.abs(y - row - 11 * Math.sin(x / 15 + age * 7 + row * 0.07 + ph));
-      f += (1 - smooth(4, 12, d)) * (1 - smooth(48, 62, Math.abs(x)));
+  // 금빛 놋그릇 + 고봉밥 (상자 안에서 천천히 쑥)
+  STATE.riceTop = 0;
+  const bs = GS.bowlS;
+  if (GS.rise <= 0 || bs <= 0.01) return;
+  const rimY = BOWL_PY + (1 - GS.rise) * 260;
+  const bw = P(871, rimY, BOX_Z), tw = GS.bowlTw;
+  ellipsoid(bw, [BOWL_R[0] * bs, BOWL_R[1] * bs, BOWL_R[2] * bs], null, null, (k, tt, qx, qy) => {
+    if (qy > 0) return;                                   // 아래 반쪽 = 그릇
+    if (qy > -0.15) {                                    // 테두리 하이라이트
+      lit(VN[0], VN[1], VN[2], BRASS_HI, BRASS, BRASS_SH, 0, 0.5, null); flashLO(tw * 0.6);
+      put(k, tt, LO[0], LO[1], LO[2], LO[3], MARK_RIM, PART_GIFT); return;
     }
-    return f;
-  }
-  if (kind === 'cloud') {                         // 입김 구름
-    let f = 0;
-    for (const [cx, cy, r] of [[-34, 10, 26], [-4, -10, 32], [28, 6, 27], [-14, 22, 24], [14, 22, 24]]) f = Math.max(f, softDisc(x, y, cx, cy, r, r));
-    return f + 0.4 * softDisc(x, y, -62, 34, 10, 10);
-  }
-  if (kind === 'drop') {                          // 땀방울
-    if (y > 0) return softDisc(x, y, 0, 18, 24, 24);
-    const hw = 24 * clamp01((y + 46) / 64); return y < -46 ? 0 : 1 - smooth(0.7, 1.15, Math.abs(x) / Math.max(hw, 1));
-  }
-  if (kind === 'note') {                          // 음표 ♪
-    const c = Math.cos(-0.4), sn = Math.sin(-0.4), ex = (x + 12) * c - (y - 34) * sn, ey = (x + 12) * sn + (y - 34) * c;
-    let f = 1 - smooth(0.75, 1.15, Math.hypot(ex / 22, ey / 15));
-    if (y > -48 && y < 32) f += 1 - smooth(4, 9, Math.abs(x - 8));
-    const t = clamp01((x - 8) / 26); if (x >= 6 && x <= 36) f += 1 - smooth(4, 10, Math.abs(y - (-48 + 26 * t)));
-    return f;
-  }
-  return 0;
-}
-let iconMask = new Uint8Array(1);
-function drawIcons(cnt) {
-  const cellW = dp * S;
-  if (iconMask.length !== TC * TR) iconMask = new Uint8Array(TC * TR); else iconMask.fill(0);
-  for (let i = ICONS.length - 1; i >= 0; i--) {
-    const ic = ICONS[i], age = clock - ic.t0;
-    if (age > ic.life) { ICONS.splice(i, 1); continue; }
-    if (age < 0) continue;
-    const a = Math.min(1, age * 6) * clamp01((ic.life - age) / 0.55), sc = 1.45 * ic.sc * easeOutBack(age / 0.3);
-    const cx = ic.x + (ic.kind === 'waves' ? 8 * Math.sin(age * 4 + ic.ph) : 4 * Math.sin(age * 3 + ic.ph)), cy = ic.y - 120 * easeOutCubic(age / ic.life);
-    const R = 80 * sc;
-    const c0 = Math.max(0, Math.floor((cx - R - PX0) / cellW)), c1 = Math.min(TC - 1, Math.ceil((cx + R - PX0) / cellW));
-    const r0 = Math.max(0, Math.floor((cy - R - PY0) / (2 * cellW))), r1 = Math.min(TR - 1, Math.ceil((cy + R - PY0) / (2 * cellW)));
-    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-      const q = r * TC + c; if (cellHit[q] / cnt >= 0.3) continue;                       // 얼굴·몸 위엔 안 그려요
-      // 칸 안 네 곳을 재서 평균 (가장자리가 부드럽게)
-      let f = 0;
-      for (const [ox, oy] of [[0.3, 0.25], [0.7, 0.25], [0.3, 0.75], [0.7, 0.75]]) {
-        const px = PX0 + (c + ox) * cellW, py = PY0 + (r + oy) * 2 * cellW;
-        f += Math.min(1.3, iconField(ic.kind, (px - cx) / sc, (py - cy) / sc, age, ic.ph));
-      }
-      f /= 4; if (f > 0.04) { addGlowCell(r, c, ic.cat.col, 0.88 * f * a); if (a > 0.25) for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const n = q + dr * TC + dc; if (n >= 0 && n < iconMask.length) iconMask[n] = 1; } }
-    }
-  }
-}
-
-// ── 움직임 ──
-function catMove(cat, x1, z1, dur, hops, h, then) { cat.mv = { x0: cat.x, z0: cat.z, x1, z1, t0: clock, dur, hops, h, then }; }
-function catAct(cat, name) { cat.act = name; cat.actT = clock; }
-function catEnter(cat) {
-  cat.mode = 'enter'; cat.x = cat.fromX; cat.z = cat.homeZ;
-  catMove(cat, cat.homeX, cat.homeZ, 1.05, 3, 95, () => { cat.mode = 'home'; cat.next = clock + rnd(2, 4); catTapIcon(cat); catLandFx(cat); });
-}
-function catLandFx(cat) {
-  const v = catGroundV(cat); emitSparkles(v[0], v[1] - 10, 7, 300, SNOW_W, 0.45, 300, Math.PI * 0.9, -Math.PI / 2);
-}
-function catGroundV(cat) { return [cat.x + CX, CY - CAT_GROUND]; }
-function catTap(cat) {
-  if (cat.mode === 'out' || cat.mode === 'enter') return;
-  catTapIcon(cat); cat.happyT = clock; sfx('meow', cat);
-}
-function catPet(cat) {
-  if (cat.mode !== 'home') return;
-  catAct(cat, 'purr'); sfx('purr', cat);
-  catIcon(cat, 'waves', { life: 2.4 });                                       // 물결 ~ 세 줄 + 작은 하트 몇 개
-  for (let i = 0; i < 3; i++) catIcon(cat, 'heart', { sc: 0.45, delay: 0.7 + 0.35 * i, dx: (cat === KOHAKU ? 120 : 20) + 75 * i, dy: (cat === KOHAKU ? 40 : -60) - 40 * i, life: 1.4 });
-}
-function catsWake() {                              // 드래곤이 깨면 셋이 같이 화들짝
-  for (const cat of CATS) {
-    if (cat.mode !== 'sleep' && cat.mode !== 'toSleep') continue;
-    cat.mode = 'startle'; cat.mv = null; cat.wideT = clock; cat.act = null;
-    const v = cat.topV || catGroundV(cat);
-    glyphPart('!', v[0], v[1] + 100, cat.col, { vy: -240, g: 300, life: 0.9 });
-    catMove(cat, cat.x, cat.z, 0.55, 1, 150, () => {
-      catMove(cat, cat.homeX, cat.homeZ, 0.9, 3, 70, () => { cat.mode = 'home'; cat.next = clock + rnd(2, 4); });
-    });
-  }
-}
-
-function catUpdate() {
-  if (STILL) { for (const c of CATS) { c.mode = 'home'; c.x = c.homeX; c.z = c.homeZ; } return; }
-  for (const cat of CATS) {
-    if (cat.mode === 'out') {
-      if (clock >= cat.enterT + 1.3) { cat.mode = 'home'; cat.x = cat.homeX; cat.z = cat.homeZ; cat.next = clock + rnd(1, 4); }   // 미리보기 등으로 늦게 열면 바로 제자리
-      else if (clock >= cat.enterT) catEnter(cat); else continue;
-    }
-    if (QS.has('cact') && !CATX.cinit && cat.mode === 'home') {      // 확인용: ?cact=kohaku:swat:1.0
-      const [id, a, at] = QS.get('cact').split(':');
-      if (cat.id === id) { CATX.cinit = 1; catAct(cat, a); cat.actT = clock - (parseFloat(at) || 0.5); }
-    }
-    if (cat.mv) {
-      const m = cat.mv, u = clamp01((clock - m.t0) / m.dur), e = easeInOutCubic(u);
-      cat.x = m.x0 + (m.x1 - m.x0) * e; cat.z = m.z0 + (m.z1 - m.z0) * e;
-      cat.lift = m.h * Math.abs(Math.sin(Math.PI * m.hops * u));
-      cat.faceDir = Math.abs(m.x1 - m.x0) > 30 ? Math.sign(m.x1 - m.x0) : 0;
-      if (u >= 1) { cat.mv = null; cat.lift = 0; cat.faceDir = 0; const f = m.then; if (f) f(); }
-    }
-    if (FREEZE && !QS.has('cact')) continue;
-    // 드래곤이 잠들면 옆으로 와서 같이 쿨쿨
-    if (SLP.on && cat.mode === 'home' && clock - SLP.t0 > 1.2 + (cat === MINT ? 0.5 : 0)) {
-      cat.mode = 'toSleep'; cat.act = null;
-      catMove(cat, cat.sleepX, cat.homeZ, 1.0, 3, 60, () => { cat.mode = 'sleep'; cat.zT = clock + (cat === MINT ? 1.4 : 0.6); });
-    }
-    if (!SLP.on && (cat.mode === 'sleep' || cat.mode === 'toSleep')) catsWake();
-    if (cat.mode === 'sleep' && clock >= cat.zT) {
-      cat.zT = clock + 2.4;
-      const v = cat.topV || catGroundV(cat);
-      cat.zN = (cat.zN || 0) + 1;
-      glyphPart(Math.random() < 0.3 ? 'Z' : 'z', v[0] + 40, v[1] + 110, cat.col, { vx: 30, vy: -50, g: 0, life: 2.2, wob: 18 });
-    }
-    if (cat.mode !== 'home') continue;
-    // 드래곤이랑 같이 놀기
-    if (isOn('chase') && cat.hopFor !== motions.chase && clock - motions.chase > 0.8) { cat.hopFor = motions.chase; catAct(cat, 'hop'); continue; }
-    if (cat === MINT && (isOn('tail') || isOn('tailchase')) && cat.batFor !== (motions.tail ?? motions.tailchase)) { cat.batFor = motions.tail ?? motions.tailchase; catAct(cat, 'bat'); continue; }
-    if (cat === KOHAKU && GF.on && GF.ph === 'eat' && cat.stoleFor !== lastGift && GF.bites >= 1) { cat.stoleFor = lastGift; catSteal(cat); continue; }
-    // 혼자 노는 모션
-    if (cat.act && clock - cat.actT >= CAT_DUR[cat.act]) { cat.act = null; cat.next = clock + rnd(2.5, 6); }
-    if (cat.act === 'yawn' && clock - cat.actT >= 0.7 && cat.yawnSaid !== cat.actT) {               // 하품: 입 앞으로 입김 구름 퐁
-      cat.yawnSaid = cat.actT; const m = cat.mouthV || cat.topV;
-      if (m) catIcon(cat, 'cloud', { at: m, dx: cat === KOHAKU ? 250 : 120, dy: cat === KOHAKU ? -40 : -170, sc: 0.8, life: 1.6 });
-    }
-    if (!cat.act && built() && !QS.has('cact') && clock >= (cat.iconNext || 0) && !ICONS.some(I => I.cat === cat)) {   // 가끔 혼자: 음표나 하트
-      cat.iconNext = clock + rnd(10, 18); const k = pickIcon(cat, ['note', 'heart']); catIcon(cat, k, { sc: k === 'heart' ? 0.6 : 0.8 });
-    }
-    if (!cat.act && clock >= cat.next && built() && !QS.has('cact')) {
-      const pool = cat.acts.filter(a => a !== cat.last);
-      const a = pool[Math.random() * pool.length | 0]; cat.last = a; catAct(cat, a);
-    }
-  }
-}
-// 고봉밥 훔쳐 먹기: 살금살금 → 폴짝 → 냠 → 드래곤 깜짝 → 후다닥
-function catSteal(cat) {
-  cat.mode = 'steal'; cat.act = null; cat.stealT = clock;
-  catMove(cat, 600 - CX, 700, 1.4, 4, 10, () => {
-    catMove(cat, 600 - CX, 790, 0.4, 1, 0, null);
-    cat.stealUp = clock;
+    lit(VN[0], VN[1], VN[2], BRASS, BRASS_SH, BRASS_DEEP, 0, 0.45, BRASS_HI); flashLO(tw * 0.5);
+    put(k, tt, LO[0], LO[1], LO[2], LO[3], 0, PART_GIFT);
   });
-}
-
-// ── 한 장면의 자세 ──
-const CP = {};
-function catPose(cat, ta) {
-  const p = CP; const s = cat.act ? clock - cat.actT : -1, A = cat.act;
-  p.pose = cat.rest; p.yaw = 0; p.hy = 0; p.hp = 0; p.hr = 0; p.open = 1; p.happy = false; p.lx = 0; p.ly = 0; p.mouth = 0;
-  p.ear = [0, 0]; p.wag = 0.35; p.leg = [0, 0]; p.legIn = [0, 0]; p.roll = 0; p.stretch = 0; p.bat = 0; p.lift = cat.lift; p.breath = 0;
-  p.sleep = false;
-  const ph = cat === MINT ? 1.3 : 0;
-  p.hy = (cat === KOHAKU ? 0.12 : 0.05) * Math.sin(ta * 0.55 + ph);
-  p.lx = 4 * Math.sin(ta * 0.4 + ph);
-  if (cat.mode === 'enter' || cat.mode === 'toSleep' || cat.mode === 'startle' || cat.mv) { p.pose = 'sit'; p.yaw = 0.55 * cat.faceDir; p.ear = [-0.15, -0.15]; }
-  if (cat.mode === 'sleep') {
-    p.pose = 'curl'; p.open = 0; p.sleep = true; p.breath = Math.sin(2 * Math.PI * (clock - cat.zT) / 3.4); p.wag = 0.1;
-  }
-  if (cat.mode === 'startle') { p.open = 1.25; p.ear = [0.35, 0.35]; p.hp = -0.15; }
-  if (cat.mode === 'steal') {
-    const st = clock - cat.stealT; p.pose = 'sit';
-    if (!cat.stealUp) { p.hp = 0.25; p.lift = cat.lift - 26; p.yaw = 0.5; p.ear = [-0.3, -0.3]; p.lx = 10; }   // 살금살금 (몸 낮춰)
-    else {
-      const u = clock - cat.stealUp;
-      p.lift = 240 * easeOutCubic(u / 0.35); p.yaw = 0.3;
-      p.hp = 0.35 * bump(u, 0.4, 0.3) + 0.35 * bump(u, 0.75, 0.3); p.mouth = 0.9 * bump(u, 0.4, 0.25) + 0.9 * bump(u, 0.75, 0.25);
-      p.happy = u > 1.05;
-      if (u >= 0.5 && !cat.nom1) { cat.nom1 = 1;
-        const hv = cat.topV || catGroundV(cat); catIcon(cat, 'drop', { at: hv, dx: 390, dy: 130, sc: 0.75, life: 1.4 });   // 땀방울 + 반짝 (사발·드래곤 몸을 피해 바깥쪽 빈 곳에)
-        emitSparkles(hv[0] - 390, hv[1] + 110, 5, 260, cat.col, 0.45, 0); const r = STATE.riceTopV || [660, 1080]; emitGrains(r[0] - 130, r[1] + 30, 6); }
-      if (u >= 0.85 && !cat.nom2) {
-        cat.nom2 = 1; CATX.surpT = clock;
-        const h = STATE.headTopV || [871, 280];
-        glyphPart('!', h[0] - 170, h[1] + 30, C3(0xFF, 0xE0, 0x80), { vy: -220, g: 280, life: 0.9 });
-      }
-      if (u >= 1.25 && !cat.fled) {
-        cat.fled = 1;
-        catMove(cat, cat.homeX, cat.homeZ, 0.8, 3, 80, () => { cat.mode = 'home'; cat.stealUp = 0; cat.nom1 = cat.nom2 = cat.fled = 0; cat.next = clock + rnd(2, 4); });
-      }
-      if (cat.fled) { p.lift = cat.lift; p.yaw = -0.6; p.hp = 0; p.happy = true; }
-    }
-    if (st > 6) { cat.mode = 'home'; cat.stealUp = 0; cat.nom1 = cat.nom2 = cat.fled = 0; cat.x = cat.homeX; cat.z = cat.homeZ; }
-  }
-  // 혼자 하는 모션
-  if (A === 'wag') p.wag = 1;
-  if (A === 'ear') { const k = bump(s, 0.1, 0.25) + bump(s, 0.5, 0.25); p.ear = [0.3 * k, -0.25 * k]; }
-  if (A === 'yawn') { const k = smooth(0.2, 0.8, s) * (1 - smooth(1.6, 2.2, s)); p.mouth = k; p.open = 1 - k; p.hp = -0.25 * k; p.ear = [-0.2 * k, -0.2 * k]; }
-  if (A === 'groom') {
-    const k = smooth(0, 0.5, s) * (1 - smooth(2.4, 3.0, s)), lick = Math.sin(s * 9);
-    p.leg[0] = k * (cat === MINT ? 1 : 2.15 + 0.12 * lick); p.legIn[0] = k * 0.5; p.hr = 0.22 * k + 0.05 * lick * k; p.hp = 0.12 * k;
-    p.open = 1 - 0.9 * k; p.mouth = 0.25 * k * (0.5 + 0.5 * lick);
-  }
-  if (A === 'stretch') { const k = smooth(0.1, 0.9, s) * (1 - smooth(1.9, 2.6, s)); p.stretch = k; p.open = 1 - 0.85 * k; p.mouth = 0.6 * bump(s, 0.7, 1.0); }
-  if (A === 'look') {
-    const lr = kf(s, [[0, 0], [0.4, -1], [1.1, -1], [1.6, 1], [2.3, 1], [2.8, 0]]);
-    p.hy += 0.5 * lr; p.lx += 14 * lr; p.ear = [0.25 * Math.abs(lr), 0.25 * Math.abs(lr)]; p.hr = 0.1 * kf(s, [[1.1, 0], [1.35, 1], [1.6, 0]]);
-  }
-  if (A === 'roll') {                                // 뒹굴뒹굴 배 보이기
-    const k = smooth(0, 0.7, s) * (1 - smooth(2.9, 3.6, s));
-    p.roll = k * (0.95 + 0.3 * Math.sin((s - 0.7) * 4.2)); p.leg[0] = 0.5 * k; p.leg[1] = 0.4 * k; p.happy = k > 0.5; p.wag = 0.8;
-  }
-  if (A === 'swat') {                                // 떨어지는 눈송이 톡!
-    const v = cat.pawV || catGroundV(cat);
-    if (s < 0.9) { p.hp = -0.35 * smooth(0, 0.4, s); p.ly = -14; p.lx = 6; }
-    p.leg[0] = 2.3 * bump(s, 0.75, 0.5); p.ear = [0.25, 0.25];
-    if (!cat.swat0 || clock - cat.swat0 > 2) {
-      cat.swat0 = clock;
-      particles.push({ glyph: '*', heart: false, x: v[0] + 10, y: v[1] - 400, vx: 0, vy: 360, g: 0, age: 0, life: 0.95, ph: 0, col: SNOW_W, wob: 14 });
-    }
-    if (s >= 0.95 && cat.swatHit !== cat.swat0) {
-      cat.swatHit = cat.swat0;
-      emitSparkles(v[0] + 10, v[1] - 60, 7, 330, SNOW_B, 0.45, 200);
-      particles.push({ glyph: '*', heart: false, x: v[0] + 10, y: v[1] - 60, vx: -260, vy: -300, g: 700, age: 0, life: 0.8, ph: 0, col: SNOW_W, wob: 0 });
-    }
-    p.happy = s > 1.2 && s < 1.8;
-  }
-  if (A === 'bat') {                                 // 드래곤 꼬리를 앞발로 톡톡
-    p.bat = Math.max(0, Math.sin(s * 9.5)) * smooth(0, 0.2, s) * (1 - smooth(1.6, 1.9, s)); p.hy = 0.2; p.lx = -16; p.ear = [0.3, 0.3];
-    p.open = 1.15;
-  }
-  if (A === 'hop') { p.pose = 'sit'; p.lift = 120 * Math.max(0, Math.sin(Math.PI * clamp01(s / 0.55))) + 60 * Math.max(0, Math.sin(Math.PI * clamp01((s - 0.55) / 0.4))); p.open = 1.2; p.ear = [0.3, 0.3]; }
-  if (A === 'purr') {                                // 쓰다듬기: 눈 감고 골골
-    const k = smooth(0, 0.3, s) * (1 - smooth(2.6, 3.0, s)); p.open = 1 - k; p.happy = k > 0.4; p.hr = 0.15 * k * Math.sin(s * 3); p.wag = 0.8;
-  }
-  // 톡: 눈 ^^ · 화들짝: 눈 동그랗게
-  if (clock - cat.happyT < 1.2) p.happy = true;
-  if (clock - cat.wideT < 1.0) p.open = 1.25;
-  // 눈 깜빡
-  if (!p.sleep && clock >= cat.blinkNext) { cat.blinkT = clock; cat.blinkNext = clock + rnd(2.5, 5.5); }
-  const bk = bump(clock - cat.blinkT, 0, 0.2); if (bk > 0 && !p.happy) p.open = Math.min(p.open, 1 - bk);
-  if (FREEZE && !QS.has('cact')) p.open = Math.max(p.open, cat.mode === 'sleep' ? 0 : 1);
-  return p;
-}
-
-// ── 그리기 도구: G = { o: 세상 원점, R: 회전 } ──
-let CC = null, CPART = 0;                           // 지금 그리는 고양이 색 · 부위 번호
-function gx(G, v) { return add3(G.o, mv(G.R, v)); }
-function gEll(G, c, rad, Rl, cb) { ellipsoid(gx(G, c), rad, Rl ? mm3(G.R, Rl) : G.R, null, cb); }
-function cput(k, t, pal, mark = 0, extra = 0, spec = 0.1) {
-  lit(VN[0], VN[1], VN[2], pal[0], pal[1], pal[2], extra, spec, pal[3]); put(k, t, LO[0], LO[1], LO[2], LO[3], mark, CPART);
-}
-const furCb = (c, rad, opt = {}) => (k, t, qx, qy, qz) => {      // 몸 털 (코하쿠는 가로 줄무늬)
-  const ly = c[1] + qy * rad[1], lx = c[0] + qx * rad[0], lz = c[2] + qz * rad[2];
-  let pal = CC.fur;
-  if (opt.light && opt.light(lx, ly, lz)) pal = CC.light;
-  else if (CC.stripe && !opt.plain && Math.sin(ly / 19 + lx * (opt.sx || 0.006) + (opt.ph || 0)) > 0.45) pal = CC.stripe;
-  cput(k, t, pal);
-};
-const solidCb = (pal, spec = 0.12) => (k, t) => cput(k, t, pal, 0, 0, spec);
-// 얼굴 무늬(머리 좌표, 앞 +z): 눈·동공·코·입
-function faceMark(p, hx, hy, hz) {
-  if (hz < 25) return 0;
-  const ex = 64, ey = 10, rx = 38, ry = 40;
-  for (const sd of [-1, 1]) {
-    const dx = hx - sd * ex, dy = hy - ey;
-    if (Math.abs(dx) > rx + 6 || Math.abs(dy) > ry * 1.3 + 6) continue;
-    if (p.happy) { const yl = ry * 0.2 - 0.62 * Math.abs(dx); if (Math.abs(dx) < rx * 0.85 && Math.abs(dy - yl) < 6.5) return CC.line; continue; }
-    if (p.open < 0.3) { const yl = -ry * 0.05 - 0.22 * ry * (1 - (dx / rx) ** 2); if (Math.abs(dx) < rx * 0.92 && Math.abs(dy - yl) < 6) return CC.line; continue; }
-    const ryo = ry * Math.min(p.open, 1.25), rxo = rx * (p.open > 1 ? p.open : 1);
-    if ((dx / rxo) ** 2 + (dy / ryo) ** 2 < 1) {
-      const px = dx - p.lx, py = dy - p.ly;
-      return (px / (p.open > 1 ? 13 : 15)) ** 2 + (py / Math.min(27, ryo * 0.75)) ** 2 < 1 ? 13 : CC.iris;
-    }
-  }
-  if (hy > -44 && hy < -24 && Math.abs(hx) < 15 * (hy + 44) / 20 + 2) return CC.nose;            // 코 (역삼각형)
-  if (p.mouth > 0.05) { if ((hx / (8 + 18 * p.mouth)) ** 2 + ((hy + 64) / (6 + 26 * p.mouth)) ** 2 < 1) return 18; }
-  if (Math.abs(hx) < 3.5 && hy < -40 && hy > -54) return CC.line;
-  if (Math.abs(hx) < 28 && Math.abs(hy - (-54 - 8 * Math.sin(Math.PI * Math.min(Math.abs(hx), 26) / 26))) < 4.5) return CC.line;   // ω 입
-  return 0;
-}
-function headCb(p, c, rad, kind) {
-  return (k, t, qx, qy, qz) => {
-    const hx = c[0] + qx * rad[0], hy = c[1] + qy * rad[1], hz = c[2] + qz * rad[2];
-    const mk = faceMark(p, hx, hy, hz);
-    let pal = CC.fur;
-    if (kind === 'muzzle' || kind === 'chin') pal = CC.light;
-    else if (CC.stripe) {
-      if (hy < -26 && Math.abs(hx) < 78 && hz > 40) pal = CC.light;                                   // 크림색 볼·턱
-      else if (hy > 52 && hz > 30 && (Math.abs(hx) < 11 || Math.abs(Math.abs(hx) - 30 - (hy - 52) * 0.28) < 10) && hy < 128) pal = CC.stripe;   // 이마 M자
-      else if (Math.abs(hx) > 112 && Math.abs(hy + 4 - 0.25 * (Math.abs(hx) - 112)) < 9) pal = CC.stripe;   // 볼 줄무늬
-    }
-    cput(k, t, pal, mk, 0, 0.14);
-  };
-}
-function drawCatHead(cat, p, G) {
-  const H = CAT_HEAD;
-  gEll(G, [0, 0, 0], H, null, headCb(p, [0, 0, 0], H, 'skull'));
-  for (const sd of [-1, 1]) gEll(G, [sd * 80, -52, 46], [80, 62, 70], null, headCb(p, [sd * 80, -52, 46], [80, 62, 70], 'cheek'));
-  gEll(G, [0, -44, 100], [56, 38, 36], null, headCb(p, [0, -44, 100], [56, 38, 36], 'muzzle'));
-  gEll(G, [0, -80, 74], [38, 24, 30], null, headCb(p, [0, -80, 74], [38, 24, 30], 'chin'));
-  // 귀: 크고 뾰족, 안쪽은 진한 회색(민트) · 분홍(코하쿠)
-  for (const [i, sd] of [[0, -1], [1, 1]]) {
-    const a = sd * (0.12 + p.ear[i]) , base = [sd * 92, 84, -4], Rz = rotZ(-a);
-    const tip = add3(base, mv(Rz, [sd * 30, 128, -14])), tipIn = add3(base, mv(Rz, [sd * 26, 104, 16]));
-    cone(gx(G, base), gx(G, tip), 56, (k, t) => cput(k, t, CC.fur, 0, 0, 0.1));
-    cone(gx(G, add3(base, [sd * -2, 4, 26])), gx(G, tipIn), 34, (k, t) => cput(k, t, CC.earIn, 0, 0.05, 0.05));
-  }
-  // 볼 수염(코하쿠): 화면 위치만 기억했다가 compose 에서 하얀 줄로
-  cat.whisk = CC.stripe ? [-1, 1].flatMap(sd => [[[sd * 122, -50, 70], [sd * 215, -36, 40]], [[sd * 120, -66, 66], [sd * 208, -86, 36]]]).map(([a, b]) => [catV(gx(G, a)), catV(gx(G, b))]) : null;
-  cat.topV = catV(gx(G, [0, H[1] + 70, 0])); cat.mouthV = catV(gx(G, [0, -64, 110]));
-}
-function catV(w) { return [F.c * w[0] + F.s * w[2] + CX, CY - w[1]]; }
-function drawTail(G, pts, r0) {
-  pts.forEach((q, i) => { const r = r0 * (1 - 0.35 * i / pts.length); gEll(G, q, [r, r, r], null, furCb(q, [r, r, r], { ph: i * 0.9, sx: 0.04 })); });
-}
-function headGroup(B, pivot, hc0, Rh) {          // 목을 축으로 돈 머리
-  const hc = add3(pivot, mv(Rh, sub3(hc0, pivot)));
-  return { o: gx(B, hc), R: mm3(B.R, Rh) };
-}
-function drawDeco(cat, B, at, sc = 1) {          // 목 꾸미기: 코하쿠 초록 목도리 · 민트 빨간 리본 + 금색 방울
-  if (cat === KOHAKU) {
-    gEll(B, at, [98 * sc, 30 * sc, 92 * sc], null, solidCb(SCARF, 0.08));
-    gEll(B, add3(at, [52 * sc, -48 * sc, 78 * sc]), [24 * sc, 48 * sc, 15 * sc], rotZ(0.25), solidCb(SCARF, 0.08));
-    gEll(B, add3(at, [30 * sc, -40 * sc, 82 * sc]), [22 * sc, 40 * sc, 15 * sc], rotZ(-0.15), solidCb(SCARF, 0.08));
-  } else {
-    const kc = add3(at, [0, 0, 84 * sc]);
-    for (const sd of [-1, 1]) gEll(B, add3(kc, [sd * 30 * sc, 4, -4]), [32 * sc, 19 * sc, 13 * sc], rotZ(sd * 0.4), solidCb(RIBBON, 0.15));
-    gEll(B, add3(at, [0, 0, 20]), [86 * sc, 22 * sc, 80 * sc], null, solidCb(RIBBON, 0.1));
-    gEll(B, kc, [14 * sc, 14 * sc, 12 * sc], null, solidCb(RIBBON, 0.15));
-    gEll(B, add3(kc, [0, -30 * sc, 6]), [19 * sc, 19 * sc, 19 * sc], null, solidCb(BELL, 0.5));
-  }
-}
-function legPart(B, sh, len, R, rad, pawR) {     // 어깨에서 R 로 돈 다리 + 발
-  gEll(B, add3(sh, mv(R, [0, -len / 2, 0])), [rad, len / 2 + 6, rad], R, furCb(sh, [rad, len, rad], { plain: true }));
-  gEll(B, add3(sh, mv(R, [0, -len, 20])), pawR, R, solidCb(CC.light, 0.1));
-}
-
-function drawCat(cat, ta) {
-  const p = catPose(cat, ta);
-  CC = CPAL[cat.id]; CPART = cat.part;
-  const W = [cat.x, CAT_GROUND + Math.max(p.lift, -40), cat.z];
-  const Rb = rotY(p.yaw + (STILL ? 0 : 0.6 * SCN.yaw));
-  const Rh = mm3(rotY(p.hy), mm3(rotX(p.hp), rotZ(p.hr)));
-  if (p.pose === 'sit') {
-    const sc = cat === MINT ? 0.94 : 1;
-    // 기지개: 앞발 기준으로 엉덩이 쭉
-    const piv = [0, 20, 90], Rr = rotX(0.42 * p.stretch);
-    const B = { R: mm3(Rb, Rr) }; B.o = sub3(add3(W, mv(Rb, piv)), mv(B.R, piv));
-    const B0 = { o: W, R: Rb };
-    gEll(B, [0, 100, -35], [142 * sc, 100 * sc, 118 * sc], null, furCb([0, 100, -35], [142, 100, 118]));
-    gEll(B, [0, 200, 0], [100 * sc, 118 * sc, 92 * sc], null, furCb([0, 200, 0], [100, 118, 92]));
-    gEll(B, [0, 205, 52], [70 * sc, 92 * sc, 48 * sc], null, solidCb(CC.light, 0.08));
-    for (const sd of [-1, 1]) {
-      gEll(B, [sd * 108, 72, 10], [58, 66, 82], null, furCb([sd * 108, 72, 10], [58, 66, 82], { sx: 0.03 }));
-      gEll(B, [sd * 112, 18, 80], [38, 18, 44], null, solidCb(CC.light, 0.1));
-    }
-    for (const [i, sd] of [[0, 1], [1, -1]]) {
-      const a = p.leg[i] + 0.6 * p.stretch, R = mm3(rotZ(sd * 0.5 * p.legIn[i]), rotX(-a));
-      legPart(B, [sd * 46, 150, 58], 128 + 40 * p.stretch, R, 33, [38, 22, 40]);
-    }
-    cat.pawV = catV(gx(B0, [46, 20, 100]));
-    const wg = Math.sin(ta * (2.2 + 3 * p.wag)) * (0.25 + 0.6 * p.wag);
-    const tail = [];
-    for (let i = 0; i < 10; i++) {
-      const u = i / 9, th = -1.35 + 2.3 * u + wg * u * u * 0.8;
-      tail.push([155 * Math.cos(th) * sc, 26 + 30 * (1 - u) + (p.wag > 0.6 ? 50 * u * u * Math.abs(wg) : 0), 140 * Math.sin(th) * sc - 10]);
-    }
-    drawTail(B, tail, 27);
-    drawDeco(cat, B, [0, 292, 12]);
-    drawCatHead(cat, p, headGroup(B, [0, 300, 15], [0, 408, 30], mm3(rotX(-0.3 * p.stretch), Rh)));
-  } else if (p.pose === 'lie') {
-    // 옆으로 길게 누워 앞발 쭉 (뒹굴 땐 몸을 x 축으로 굴려 배가 보여요)
-    const rc = [0, 100, 0], Rr = rotX(-p.roll);
-    const B = { R: mm3(Rb, Rr) }; B.o = sub3(add3(W, mv(Rb, rc)), mv(B.R, rc));
-    const belly = (lx, ly, lz) => lz > 40 && ly < 100;
-    const st = 1 + 0.12 * p.stretch;
-    gEll(B, [-20, 100, -5], [172 * st, 90, 110], null, furCb([-20, 100, -5], [172, 90, 110], { light: belly }));
-    gEll(B, [92, 112, 25], [105, 98, 98], null, furCb([92, 112, 25], [105, 98, 98], { light: (x, y, z) => z > 80 && y < 120 }));
-    gEll(B, [-150 * st, 95, 45], [80, 74, 60], null, furCb([-150, 95, 45], [80, 74, 60]));
-    gEll(B, [-205 * st, 48, 75], [62, 26, 28], rotZ(0.25 + 0.5 * p.leg[1]), furCb([-205, 48, 75], [62, 26, 28], { plain: true }));
-    gEll(B, [-258 * st - 20 * p.stretch, 30 + 60 * p.leg[1], 82], [34, 20, 30], null, solidCb(CC.light));
-    gEll(B, [95, 85, 95], [50, 48, 40], null, furCb([95, 85, 95], [50, 48, 40], { plain: true }));
-    // 앞발 두 개: 멀리 쭉 뻗은 발(톡톡 칠 때 들어 올려요) + 조금 덜 뻗은 발
-    const E1 = [70, 62, 108], b = 0.55 * p.bat + 0.9 * p.leg[0], dir = [-Math.cos(b), Math.sin(b), 0], L1 = 200 + 40 * p.stretch;
-    gEll(B, add3(E1, [dir[0] * L1 / 2, dir[1] * L1 / 2, 0]), [L1 / 2, 27, 29], rotZ(-b), furCb(E1, [L1, 27, 29], { plain: true }));
-    gEll(B, add3(E1, [dir[0] * (L1 + 10), dir[1] * (L1 + 10), 6]), [42, 25, 34], rotZ(-b), solidCb(CC.light));
-    const E2 = [40, 52, 50], L2 = 135 + 30 * p.stretch;
-    gEll(B, add3(E2, [-L2 / 2, 0, 0]), [L2 / 2, 25, 27], null, furCb(E2, [L2, 25, 27], { plain: true }));
-    gEll(B, add3(E2, [-L2 - 8, -6, 4]), [38, 22, 30], null, solidCb(CC.light));
-    cat.pawV = catV(gx(B, add3(E1, [dir[0] * L1, dir[1] * L1, 0])));
-    const wg = Math.sin(ta * (1.6 + 2.6 * p.wag)) * (0.3 + 0.6 * p.wag), tail = [];
-    for (let i = 0; i < 10; i++) { const u = i / 9; tail.push([-190 * st - 120 * u, 70 - 30 * u + 60 * u * u * Math.max(0, wg), -40 + 90 * u * u + 70 * u * wg]); }
-    drawTail(B, tail, 26);
-    drawDeco(cat, B, [140, 150, 40], 0.95);
-    const Rhd = mm3(rotX(-0.35 * p.roll), mm3(rotZ(-0.3 + 0.25 * p.roll), Rh));
-    drawCatHead(cat, p, headGroup(B, [140, 160, 30], [200, 232, 60], Rhd));
-  } else {
-    // 동그랗게 말려 쿨쿨
-    const B = { o: [W[0], W[1] + 3 * p.breath, W[2]], R: Rb };
-    gEll(B, [0, 88, -10], [178, 90 + 4 * p.breath, 135], null, furCb([0, 88, -10], [178, 90, 135]));
-    gEll(B, [-95, 105, -30], [95, 80, 95], null, furCb([-95, 105, -30], [95, 80, 95]));
-    gEll(B, [55, 30, 120], [40, 22, 34], null, solidCb(CC.light));
-    gEll(B, [120, 28, 108], [38, 22, 34], null, solidCb(CC.light));
-    const tail = [];
-    for (let i = 0; i < 10; i++) { const th = 3.35 - 1.85 * i / 9 + 0.06 * Math.sin(ta * 1.5) * i / 9; tail.push([195 * Math.cos(th), 34, 150 * Math.sin(th)]); }
-    drawTail(B, tail, 27);
-    drawDeco(cat, B, [70, 112, 50], 0.85);
-    p.open = 0;
-    drawCatHead(cat, p, headGroup(B, [60, 110, 40], [88, 140, 92], mm3(rotZ(0.32), rotX(0.18))));
-  }
-}
-function drawCats(t, ta) {
-  if (!CATS.some(c => c.mode !== 'out')) return;
-  setRays(0, 1, 1, 0);                            // 고양이는 제자리에서 몸만 살짝 같이 돌아요
-  for (const cat of CATS) if (cat.mode !== 'out') drawCat(cat, ta);
-}
-// 드래곤이 깜짝(코하쿠가 밥을 훔쳐 갔을 때)
-function catDragonFX() {
-  const d = clock - CATX.surpT;
-  if (d >= 0 && d < 1.3) { const k = bump(d, 0, 1.3); FX.eyeBig = Math.max(FX.eyeBig, 1 + 0.35 * k); FX.happy = 0; FX.happy2 = 0; FX.eyeClose = 0; FX.mouthO = Math.max(FX.mouthO, 0.45 * k); }
-}
-// 수염 · 이름표 칸 비우기 (compose 끝에서)
-function catOverlay(data, cnt) {
-  for (const cat of CATS) {
-    if (cat.mode === 'out' || !cat.whisk) continue;
-    for (const [a, b] of cat.whisk) {
-      const n = 6;
-      for (let i = 1; i <= n; i++) {
-        const x = a[0] + (b[0] - a[0]) * i / n, y = a[1] + (b[1] - a[1]) * i / n;
-        const c = Math.round((x - PX0) / (dp * S) - 0.5), r = Math.round((y - PY0) / (dp * 2 * S) - 0.5);
-        if (r < 0 || r >= TR || c < 0 || c >= TC) continue;
-        const q = r * TC + c; if (cellHit[q] / cnt >= 0.45) continue;
-        CH[q] = GI[Math.abs(b[1] - a[1]) > Math.abs(b[0] - a[0]) * 0.35 ? ((b[1] - a[1]) * (b[0] - a[0]) > 0 ? '\\' : '/') : '-'];
-        const o = q * 4, k = 0.95 - 0.35 * i / n; data[o] = 255 * k; data[o + 1] = 250 * k; data[o + 2] = 240 * k; data[o + 3] = 255;
-      }
-    }
-  }
+  const hgt = 1 - GS.eat;                                // 위에서부터 줄어들어요
+  if (hgt > 0.02) {
+    const rc = [bw[0], bw[1] - 6 * bs, bw[2]];
+    ellipsoid(rc, [RICE_R[0] * bs, RICE_R[1] * hgt * bs, RICE_R[2] * bs], null, null, (k, tt, qx, qy, qz) => {
+      if (qy < -0.05) return;
+      const n = 0.5 + 0.5 * Math.sin(qx * 31 + qy * 17) * Math.sin(qz * 27 - qy * 23);   // 밥알 오돌토돌
+      lit(VN[0], VN[1], VN[2], RICE, RICE_SH, RICE_DEEP, 0.18 * n, 0.12, null); flashLO(tw * 0.4);
+      put(k, tt, LO[0], LO[1], LO[2], LO[3], MARK_RICE, PART_GIFT);
+    });
+    STATE.riceTop = rimY + 6 * bs - RICE_R[1] * hgt * bs;
+  } else STATE.riceTop = rimY;
 }
 
 function addGlow(px, py, C, I, kind = 0) {       // 사진 좌표에 빛 더하기(겹칠수록 밝게)
@@ -2605,7 +1219,7 @@ function addGlowCell(r, c, C, I, kind = 0) {
   if (r < 0 || r >= TR || c < 0 || c >= TC || !(I > 0)) return;
   const q = r * TC + c;
   gI[q] += I; gR[q] += C[0] * I; gG[q] += C[1] * I; gBl[q] += C[2] * I;
-  if (kind === 1) gHeart[q] += I; else if (kind === 2) gStar[q] += I; else if (kind === 5) gGrain[q] += I;
+  if (kind === 1) gHeart[q] += I; else if (kind === 2) gStar[q] += I;
 }
 function coverAt(px, py) {
   const c = Math.round((px - PX0) / (dp * S) - 0.5), r = Math.round((py - PY0) / (dp * 2 * S) - 0.5);
@@ -2615,8 +1229,8 @@ function coverAt(px, py) {
 
 function compose(t, ta, yaw, jumpLift) {
   const nc = TC * TR, cnt = 2 * S * S;
-  cellHit.fill(0); cellR.fill(0); cellG.fill(0); cellB.fill(0); cellL.fill(0); cellMark.fill(0); cellCat.fill(0); cellGift.fill(0); riceMask.fill(0); cellArm.fill(0);
-  gI.fill(0); gR.fill(0); gG.fill(0); gBl.fill(0); gHeart.fill(0); gStar.fill(0); gGrain.fill(0); gSteam.fill(0); gChI.fill(0); gSteamD.fill(0);
+  cellHit.fill(0); cellR.fill(0); cellG.fill(0); cellB.fill(0); cellL.fill(0); cellMark.fill(0); cellGift.fill(0); riceMask.fill(0);
+  gI.fill(0); gR.fill(0); gG.fill(0); gBl.fill(0); gHeart.fill(0); gStar.fill(0); gSteam.fill(0); gSteamD.fill(0);
   for (let j = 0; j < NY; j++) {
     const rowBase = ((j / (2 * S)) | 0) * TC;
     for (let i = 0; i < NX; i++) {
@@ -2625,7 +1239,7 @@ function compose(t, ta, yaw, jumpLift) {
       const q = rowBase + ((i / S) | 0);
       cellHit[q]++; cellR[q] += RB[k]; cellG[q] += GB[k]; cellB[q] += BB[k]; cellL[q] += LB[k];
       if (MB[k]) cellMark[q * MS + MB[k]]++;
-      if (PB[k] === PART_GIFT) cellGift[q]++; else if (PB[k] === PART_ARM) cellArm[q]++; else if (PB[k] >= PART_MINT) cellCat[q]++;
+      if (PB[k] === PART_GIFT) cellGift[q]++;
     }
   }
   // 발밑 빛 (점프하면 옅어짐)
@@ -2662,6 +1276,31 @@ function compose(t, ta, yaw, jumpLift) {
     for (let q = 0; q < nc; q++) if (snowPed[q] > 0.02) {
       const I = 1.1 * snowPed[q] * (1 - cellHit[q] / cnt) * a;
       gI[q] += I; gR[q] += SNOW_PILE[0] * I; gG[q] += SNOW_PILE[1] * I; gBl[q] += SNOW_PILE[2] * I;
+    }
+  }
+  // 고리 (왼 → 오)
+  const rp = clamp01((t - T_RING) / 1.3);
+  if (rp > 0) {
+    let RI, RC;
+    if (rp >= 1 && ringFull) { RI = ringFull.I; RC = ringFull.C; }
+    else {
+      RI = new Float32Array(nc); RC = new Float32Array(nc * 3); const RA = new Float32Array(nc);
+      for (let j = 0; j < NY; j++) {
+        const rb = ((j / (2 * S)) | 0) * TC;
+        for (let i = 0; i < NX; i++) {
+          const k = j * NX + i, u = BG_U[k]; if (u > rp) continue;
+          const ra = BG_RA[k]; if (ra <= 0) continue;
+          const q = rb + ((i / S) | 0), head = rp < 1 ? clamp01(1 - (rp - u) / 0.05) : 0;
+          RI[q] += ra * (0.75 + 1.2 * head) / cnt; RA[q] += ra;
+          RC[q * 3] += BG_RR[k] * ra; RC[q * 3 + 1] += BG_RG[k] * ra; RC[q * 3 + 2] += BG_RB[k] * ra;
+        }
+      }
+      for (let q = 0; q < nc; q++) if (RA[q] > 0) { RC[q * 3] /= RA[q]; RC[q * 3 + 1] /= RA[q]; RC[q * 3 + 2] /= RA[q]; }
+      if (rp >= 1) ringFull = { I: RI, C: RC };
+    }
+    for (let q = 0; q < nc; q++) if (RI[q] > 0) {
+      const I = RI[q] * (1 - cellHit[q] / cnt);
+      gI[q] += I; gR[q] += RC[q * 3] * I; gG[q] += RC[q * 3 + 1] * I; gBl[q] += RC[q * 3 + 2] * I;
     }
   }
   const cellW = dp * S;              // 칸 폭(사진 px)
@@ -2732,11 +1371,16 @@ function compose(t, ta, yaw, jumpLift) {
     const col = f.col || (f.col = SNOW_W.map((v, k) => v + (SNOW_B[k] - v) * f.tint));
     addGlowCell(r, c, col, f.front ? 0.95 : 0.9 * (1 - cellHit[r * TC + c] / cnt), 2);
   }
-  // 눈송이 쫓기: 쫓는 눈송이
-  if (FX.chaseFlake) {
-    const [x, y] = FX.chaseFlake;
-    addGlow(x, y, SNOW_W, 1.5, 2); addGlow(x - cellW, y, SNOW_B, 0.35); addGlow(x + cellW, y, SNOW_B, 0.35);
-  }
+  // 고리 전구 빛무리
+  if (rp > 0) BULBS.forEach(([px, py], i) => {
+    if (px / 1743 > rp) return;
+    const on = STILL ? 0.8 : (0.5 + 0.5 * Math.cos(2 * Math.PI * (i / 8 - ta * 0.8))) ** 3;
+    const c = Math.round((px - PX0) / cellW - 0.5), r = Math.round((py - PY0) / (2 * cellW) - 0.5);
+    for (const [dr, dc] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const rr = r + dr, cc = c + dc; if (rr < 0 || rr >= TR || cc < 0 || cc >= TC) continue;
+      addGlowCell(rr, cc, BULB_COLS[i % 4], 0.3 * on * (1 - cellHit[rr * TC + cc] / cnt));
+    }
+  });
   // 눈 받아먹기: 떨어지는 눈송이 하나
   if (FX.flake >= 0 && STATE.mouthView) {
     const e = FX.flake, m = STATE.mouthView, y0 = PY0 + cellW;
@@ -2744,35 +1388,39 @@ function compose(t, ta, yaw, jumpLift) {
     addGlow(x, y, SNOW_W, 1.4, 2);
     addGlow(x - cellW, y, SNOW_B, 0.3); addGlow(x + cellW, y, SNOW_B, 0.3);
   }
-  // 고봉밥: 하얀 김 세 줄기 꼬불꼬불
-  if (GF.on && GF.steam > 0.02 && STATE.riceTopV && !STILL) {
-    const [tx, top] = STATE.riceTopV, HT = 230, amt = GF.steam * Math.min(1, GF.hShow * 2);
-    for (let k = 0; k < 3; k++) {
-      const x0 = tx + (k - 1) * 55;
-      for (let hh = 0; hh < HT; hh += cellW * 0.6) {
-        const phs = hh / 34 - ta * 3.2 + k * 2.1, x = x0 + 20 * Math.sin(phs) * (0.5 + hh / HT), y = top - 10 - hh;
-        const I = 0.8 * amt * (1 - hh / HT) ** 0.8 * (0.65 + 0.35 * Math.sin(hh / 20 - ta * 5 + k));
-        const c = Math.round((x - PX0) / cellW - 0.5), r = Math.round((y - PY0) / (2 * cellW) - 0.5);
-        if (r < 0 || r >= TR || c < 0 || c >= TC) continue;
-        const q = r * TC + c, cs = Math.cos(phs);
-        gSteam[q] += I;
-        if (I > gSteamD[q]) { gSteamD[q] = I; gSteamCh[q] = GI[cs > 0.4 ? '/' : cs < -0.4 ? '\\' : Math.sin(phs) > 0 ? ')' : '(']; }
+  // 고봉밥: 금빛 빛살 + 하얀 김 세 줄기
+  if (GS.on && GS.rise > 0 && STATE.riceTop) {
+    const top = STATE.riceTop, rimY = BOWL_PY + (1 - GS.rise) * 260, cy = (top + rimY) / 2;
+    if (GS.rays > 0.02) {
+      const R = 150 / cellW;
+      for (let i = 0; i < 8; i++) {
+        const an = i * Math.PI / 4;
+        for (let rr = R; rr < R + 13 * GS.rays; rr += 0.7) {
+          const a = 1.15 * GS.rays * (1 - (rr - R) / (13 * GS.rays + 1)), x = 871 + rr * cellW * Math.cos(an), y = cy - rr * cellW * Math.sin(an);
+          addGlow(x, y, GOLD_RAY, a);
+          addGlow(x - 0.6 * cellW * Math.sin(an), y - 0.6 * cellW * Math.cos(an), GOLD_RAY, 0.45 * a);
+        }
+      }
+    }
+    if (GS.steam > 0.02 && !STILL) {
+      const HT = 230;
+      for (let k = 0; k < 3; k++) {
+        const x0 = 871 + (k - 1) * 48;
+        for (let hh = 0; hh < HT; hh += cellW * 0.6) {
+          const phs = hh / 34 - ta * 3.2 + k * 2.1, x = x0 + 20 * Math.sin(phs) * (0.5 + hh / HT), y = top - 10 - hh;
+          const I = 0.8 * GS.steam * (1 - hh / HT) ** 0.8 * (0.65 + 0.35 * Math.sin(hh / 20 - ta * 5 + k));
+          const c = Math.round((x - PX0) / cellW - 0.5), r = Math.round((y - PY0) / (2 * cellW) - 0.5);
+          if (r < 0 || r >= TR || c < 0 || c >= TC) continue;
+          const q = r * TC + c, cs = Math.cos(phs);
+          gSteam[q] += I;
+          if (I > gSteamD[q]) { gSteamD[q] = I; gSteamCh[q] = GI[cs > 0.4 ? '/' : cs < -0.4 ? '\\' : Math.sin(phs) > 0 ? ')' : '(']; }
+        }
       }
     }
   }
   // 모션 반짝이·하트
   for (const pa of particles) {
     if (pa.age < 0) continue;
-    if (pa.glyph) {                                  // ? ♪ ♫ Z z !
-      const lf = clamp01(1 - pa.age / pa.life), a = Math.min(1, pa.age * 8) * Math.min(1, lf * 3);
-      const px = pa.x + pa.wob * Math.sin(pa.age * 4 + pa.ph);
-      const c = Math.round((px - PX0) / cellW - 0.5), r = Math.round((pa.y - PY0) / (2 * cellW) - 0.5);
-      if (r < 0 || r >= TR || c < 0 || c >= TC) continue;
-      const q = r * TC + c, I = 1.3 * a;
-      if (I > gChI[q]) { gChI[q] = I; gChC[q] = GI[pa.glyph]; gChR[q] = pa.col[0]; gChG[q] = pa.col[1]; gChB[q] = pa.col[2]; }
-      addGlowCell(r, c - 1, pa.col, 0.22 * a); addGlowCell(r, c + 1, pa.col, 0.22 * a);
-      continue;
-    }
     const life = clamp01(1 - pa.age / pa.life), a = Math.min(1, pa.age * 8) * Math.min(1, life * 3);
     if (pa.heart) {
       const px = pa.x + Math.sin(pa.age * 5 + pa.ph) * 25;
@@ -2781,14 +1429,11 @@ function compose(t, ta, yaw, jumpLift) {
     } else {
       const col = pa.col || SPARKLE;
       if (pa.small) { addGlow(pa.x, pa.y, col, 0.9 * a); continue; }
-      if (pa.grain) { addGlow(pa.x, pa.y, col, 1.0 * a, 5); continue; }
       addGlow(pa.x, pa.y, col, 1.0 * a, 2);
       addGlow(pa.x - cellW, pa.y, col, 0.3 * a); addGlow(pa.x + cellW, pa.y, col, 0.3 * a);
     }
   }
 
-  drawIcons(cnt);
-  drawScene(t, ta);
   // ── 글자 고르기 ──
   const data = colorImg.data;
   for (let q = 0; q < nc; q++) {
@@ -2813,16 +1458,11 @@ function compose(t, ta, yaw, jumpLift) {
         r = Er / Ia * br * (1 - wh) + wh; g = Eg / Ia * br * (1 - wh) + wh; b = Eb / Ia * br * (1 - wh) + wh;
         if (gHeart[q] > 0.3 && gHeart[q] >= 0.5 * I) ch = GI['♥'];
         else if (gStar[q] > 0.3 && gStar[q] >= 0.5 * I) ch = GI['*'];
-        else if (gGrain[q] > 0.3 && gGrain[q] >= 0.5 * I) { ch = GI[hash1(q) < 0.5 ? '.' : ':']; r = g = b = 1; }
       }
     }
-    // 크리스마스 풍경: 캐릭터(가장자리 포함)가 없는 칸에서, 내리는 눈·하트 같은 밝은 빛보다 뒤에
-    if (sCh[q] && cover <= 0.08 && I < 0.3 && !iconMask[q]) { ch = sCh[q]; r = sR[q]; g = sG[q]; b = sB[q]; }
-    // 떠오르는 글자 (캐릭터 앞에도 보여요)
-    if (gChI[q] > 0.35) { ch = gChC[q]; const k = Math.min(1, gChI[q]); r = gChR[q] * k; g = gChG[q] * k; b = gChB[q] * k; }
     // 하얀 김 (캐릭터 앞에도 보여요)
     const stm = gSteam[q];
-    if (stm > 0.2 && !surf) { ch = gSteamCh[q]; const k = 0.45 + 0.55 * Math.min(stm, 1); r = STEAM[0] * k; g = STEAM[1] * k; b = STEAM[2] * k; }
+    if (stm > 0.2) { ch = gSteamCh[q]; const k = 0.45 + 0.55 * Math.min(stm, 1); r = STEAM[0] * k; g = STEAM[1] * k; b = STEAM[2] * k; }
     // 무늬: 정해진 글자·색으로 꽉 채우기
     let marked = false;
     for (const [mid, mch, mc, thr] of MARK_STYLE) {
@@ -2844,7 +1484,7 @@ function compose(t, ta, yaw, jumpLift) {
     data[o] = r * 255; data[o + 1] = g * 255; data[o + 2] = b * 255; data[o + 3] = ch ? 255 : 0;
   }
   // 고봉밥 둘레에 살짝 그늘 — 뒤의 하얀 배와 섞이지 않게
-  if (GF.on) for (let q = 0; q < nc; q++) {
+  if (GS.on) for (let q = 0; q < nc; q++) {
     if (!riceMask[q]) continue;
     const r0 = (q / TC) | 0, c0 = q - r0 * TC;
     for (const [dr, dc] of [[0, -1], [0, 1], [-1, 0], [-1, -1], [-1, 1]]) {
@@ -2854,31 +1494,17 @@ function compose(t, ta, yaw, jumpLift) {
       const o = n * 4; data[o] *= 0.42; data[o + 1] *= 0.42; data[o + 2] *= 0.45;
     }
   }
-  // 껴안은 팔 둘레에 옅은 선 — 같은 분홍인 몸과 섞이지 않게
-  if (GF.arm[0] || GF.arm[1] || FX.arm[0] || FX.arm[1]) for (let q = TC; q < nc - TC; q++) {
-    if (cellArm[q] / cnt < 0.5) continue;
-    for (const n of [q - 1, q + 1, q - TC, q + TC]) {
-      if (cellArm[n] / cnt >= 0.5 || cellHit[n] / cnt < 0.45 || riceMask[n] || cellMark[n * MS + MARK_LINE]) continue;
-      const o = n * 4; data[o] *= 0.55; data[o + 1] *= 0.55; data[o + 2] *= 0.6;
-    }
-  }
-  // 고양이 둘레에 옅은 선 — 뒤의 드래곤과 섞이지 않게
-  for (let q = TC; q < nc - TC; q++) {
-    if (cellCat[q] / cnt < 0.5) continue;
-    for (const n of [q - 1, q + 1, q - TC, q + TC]) {
-      if (cellCat[n] / cnt >= 0.5 || cellHit[n] / cnt < 0.45 || cellMark[n * MS + MARK_LINE]) continue;
-      const o = n * 4; data[o] *= 0.4; data[o + 1] *= 0.4; data[o + 2] *= 0.45;
-    }
-  }
-  // 볼 옆에 묻은 밥알 하나 (그림처럼)
-  if (GF.on && GF.cheek && STATE.cheekV) {
-    const c = Math.round((STATE.cheekV[0] - PX0) / cellW - 0.5), r = Math.round((STATE.cheekV[1] - PY0) / (2 * cellW) - 0.5);
-    if (r >= 1 && r < TR - 1 && c >= 1 && c < TC - 1 && !riceMask[r * TC + c]) {
-      const q = r * TC + c, o = q * 4;
-      CH[q] = GI['o']; data[o] = 255; data[o + 1] = 250; data[o + 2] = 232; data[o + 3] = 255;
-      for (const n of [q - 1, q + 1, q - TC]) if (CH[n] && !riceMask[n]) { const on = n * 4; data[on] *= 0.5; data[on + 1] *= 0.5; data[on + 2] *= 0.55; }
-    }
-  }
+  // 고리 전구: 빨강·금색·초록·흰색이 줄줄이 달려가듯 켜졌다 꺼져요
+  if (rp > 0) BULBS.forEach(([px, py], i) => {
+    if (px / 1743 > rp) return;
+    const c = Math.round((px - PX0) / cellW - 0.5), r = Math.round((py - PY0) / (2 * cellW) - 0.5);
+    if (r < 0 || r >= TR || c < 0 || c >= TC) return;
+    const q = r * TC + c; if (cellHit[q] / cnt > 0.3) return;
+    const on = STILL ? 0.8 : (0.5 + 0.5 * Math.cos(2 * Math.PI * (i / 8 - ta * 0.8))) ** 3;
+    const C = BULB_COLS[i % 4], br = 0.3 + 0.7 * on, wh = 0.35 * on * on, o = q * 4;
+    CH[q] = GI['o'];
+    data[o] = (C[0] * br * (1 - wh) + wh) * 255; data[o + 1] = (C[1] * br * (1 - wh) + wh) * 255; data[o + 2] = (C[2] * br * (1 - wh) + wh) * 255; data[o + 3] = 255;
+  });
   // 화면 전체 별 (빈 칸에만)
   if (!STILL) for (const st of sky) {
     const q = st.r * TC + st.c; if (CH[q]) continue;
@@ -2887,7 +1513,6 @@ function compose(t, ta, yaw, jumpLift) {
     const o = q * 4, m = (0.3 + 0.7 * bb) * 255;
     data[o] = st.C[0] * m; data[o + 1] = st.C[1] * m; data[o + 2] = st.C[2] * m; data[o + 3] = 255;
   }
-  catOverlay(data, cnt);
 }
 function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) * 1.41; }
 
@@ -2925,9 +1550,6 @@ function frame(dt) {
   if (!FREEZE) clock += dt;
   const t = REF ? T_IDLE + 4 : clock, ta = clock;
   autoMotion();
-  soundTick();
-  updateGift(FREEZE ? 0 : dt);
-  catUpdate();
   computeFX();
   const ok = orbColors(ta);
   if (ok !== lastOrbK) { if (ok > 0 && STATE.orbView && !FREEZE) emitSparkles(STATE.orbView[0], STATE.orbView[1], 6, 380, null, 0.6, 0); lastOrbK = ok; }
@@ -2940,7 +1562,6 @@ function frame(dt) {
   const wavePrep = motions.wave !== undefined || FORCE === 'wave' || FX.calm;
   swayAmp += ((wavePrep ? 0 : 1) - swayAmp) * Math.min(1, (FORCE ? 1 : dt * 9));
   let yaw = STILL ? 0 : (SWAY_DEG * Math.PI / 180) * Math.sin(2 * Math.PI * ta / SWAY_PERIOD) * swayAmp;
-  SCN.yaw = yaw;                                   // 풍경은 잔잔한 흔들림만 따라가요
   yaw += FX.yaw;
   const xs = mp('spin');
   if (xs >= 0) {
@@ -2961,10 +1582,8 @@ function frame(dt) {
     if (pa.age > pa.life) particles.splice(i, 1);
   }
   setupRays(yaw, gsx, gsy, jy);
-  if (!CATSOLO) drawCharacter(t, ta);
-  if (Math.abs(FX.bodyRoll) > 1e-3) rollBuffers(FX.bodyRoll);
+  drawCharacter(t, ta);
   drawGift(t, ta);
-  drawCats(t, ta);
   compose(t, ta, yaw, jy);
   paint();
   if (built()) bar.classList.remove('off');
@@ -2996,17 +1615,6 @@ if (QS.has('vw')) {        // 미리보기: 주어진 폰 화면 크기 상자 �
   Object.assign(document.body.style, { right: 'auto', bottom: 'auto', width: QS.get('vw') + 'px', height: (QS.get('vh') || 844) + 'px', outline: '1px solid #333' });
 }
 layout();
-if (QS.has('sleigh')) { SCN.sleighT0 = clock - 4.6 * (parseFloat(QS.get('sleigh')) || 0.5); SCN.sleighNext = clock + 13; }
-if (QS.has('treetap')) SCN.tapT = clock - (parseFloat(QS.get('treetap')) || 0.1);
-if (QS.has('gift')) giftPreview(parseFloat(QS.get('gift')) || 5);
-if (PLAY && QS.has('at')) {          // 확인용: ?play=이름&at=초&freeze — 그 순간까지 돌려 놓고 멈춤
-  const fz = FREEZE; FREEZE = false; clock = Math.max(clock, T_IDLE + 4); lastInput = clock;
-  const step = n => { for (let i = 0; i < n; i++) frame(1 / 30); };
-  if (PLAY === 'wake') { lastInput = clock - 41; step(150); noteInput(); }
-  else if (DUR[PLAY] !== undefined) trigger(PLAY, false);
-  step(Math.round((parseFloat(QS.get('at')) || 1) * 30));
-  FREEZE = fz;
-}
 start();
 
 // ═════════════════════════════════════════════════════════════════════
@@ -3016,7 +1624,7 @@ function partAt(clientX, clientY) {
   const rect = cv.getBoundingClientRect();
   const xD = (clientX - rect.left) * dpr - x0D, yD = (clientY - rect.top) * dpr - y0D;
   const i0 = Math.floor(xD / cwD * S), j0 = Math.floor(yD / chD * 2 * S), rad = 2 * S;
-  const votes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const votes = [0, 0, 0, 0, 0, 0, 0];
   for (let j = j0 - rad; j <= j0 + rad; j++) for (let i = i0 - rad; i <= i0 + rad; i++) {
     if (i < 0 || j < 0 || i >= NX || j >= NY) continue;
     votes[PB[j * NX + i]] += 1 / (1 + Math.abs(i - i0) + Math.abs(j - j0));
@@ -3025,20 +1633,13 @@ function partAt(clientX, clientY) {
   return best;
 }
 let ptr = null;
-function toPhoto(cx, cy) {                        // 화면 위치 → 사진 좌표
-  const rect = cv.getBoundingClientRect();
-  return [PX0 + ((cx - rect.left) * dpr - x0D) / cwD * dp * S, PY0 + ((cy - rect.top) * dpr - y0D) / chD * 2 * dp * S];
-}
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (noteInput()) { ptr = null; return; }          // 자는 중이면 깨우기만
   ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), long: false, moved: false, dir: 0, ext: e.clientX, rev: 0, revT: 0, globe: false };
   try { cv.setPointerCapture(e.pointerId); } catch (er) {}
-  ptr.cat = catByPart(partAt(e.clientX, e.clientY));
-  ptr.timer = setTimeout(() => { if (ptr && !ptr.moved) { ptr.long = true; if (ptr.cat) catPet(ptr.cat); else trigger('hearts'); } }, 450);
+  ptr.timer = setTimeout(() => { if (ptr && !ptr.moved) { ptr.long = true; trigger('hearts'); } }, 450);
 });
 cv.addEventListener('pointermove', e => {
-  if (!ptr && e.pointerType === 'mouse') { const p = toPhoto(e.clientX, e.clientY); MOUSE.x = p[0]; MOUSE.y = p[1]; MOUSE.t = clock; }
   if (!ptr || e.pointerId !== ptr.id) return;
   if (Math.hypot(e.clientX - ptr.x, e.clientY - ptr.y) > 14) ptr.moved = true;
   // 좌우 방향이 몇 번 바뀌었는지 세기: 한 번 쓸기(0번) = 빙글, 빠르게 여러 번 문지르기(3번↑) = 스노우볼
@@ -3059,15 +1660,12 @@ function endPtr(e, cancel) {
   const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
   if (!cancel && !ptr.long) {
     if (ptr.globe || ptr.rev >= 2) { /* 문지르기 — 빙글 안 함 */ }
-    else if (!ptr.moved && ptr.cat) catTap(ptr.cat);               // 고양이 톡
-    else if (!ptr.moved && GF.on && GF.ph === 'eat') giftBoost();
     else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.2) trigger('spin');
     else if (!ptr.moved) {
       const part = partAt(e.clientX, e.clientY);
-      if (part === PART_BODY || part === PART_ARM) trigger('jump'); else if (part === PART_FACE) trigger('wink');
+      if (part === PART_BODY) trigger('jump'); else if (part === PART_FACE) trigger('wink');
       else if (part === PART_ORB) trigger('orb'); else if (part === PART_WING) trigger('flap');
       else if (part === PART_HAT) trigger('hat');
-      else if (part === 0) { const p = toPhoto(e.clientX, e.clientY); LOOK.x = p[0]; LOOK.y = p[1]; LOOK.t = clock; if (treeHit(p[0], p[1])) treeTap(); }   // 빈 곳: 그쪽 쳐다보기
     }
   }
   ptr = null;
@@ -3075,45 +1673,10 @@ function endPtr(e, cancel) {
 cv.addEventListener('pointerup', e => endPtr(e, false));
 cv.addEventListener('pointercancel', e => endPtr(e, true));
 for (const b of document.querySelectorAll('.btn')) {
-  b.addEventListener('pointerdown', e => { e.preventDefault(); if (!noteInput()) trigger(b.dataset.m); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); });
+  b.addEventListener('pointerdown', e => { e.preventDefault(); trigger(b.dataset.m); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); });
 }
-// 키보드: 글자(e.key) 대신 자판 위치(e.code)로 — 한글 입력 상태(j → ㅓ)에서도 그대로 돼요
-const KEYS = { KeyJ: 'jump', KeyW: 'wave', KeyF: 'flap', KeyE: 'wink', KeyS: 'spin', KeyH: 'hearts', KeyG: 'gift', KeyN: 'catch', KeyC: 'sneeze' };
-window.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;            // Cmd+W 같은 브라우저 단축키는 건드리지 않기
-  audioInit();                                                  // 첫 키: 소리 시작(이 키의 모션 소리도 같이)
-  if (e.code === 'KeyV') { e.preventDefault(); if (!e.repeat) setSound(!SND.want); return; }   // v 소리 켜기/끄기
-  if (e.code === 'KeyM' || e.code === 'KeyK') {                // m 민트 · k 코하쿠 쓰다듬기
-    e.preventDefault(); if (!e.repeat && !noteInput()) catPet(e.code === 'KeyM' ? MINT : KOHAKU); return;
-  }
-  const m = KEYS[e.code];
-  if (!m) return;
-  e.preventDefault();
-  if (!e.repeat && !noteInput()) trigger(m);
-}, true);
-// 처음 열자마자(클릭 없이도) 키보드가 먹히게: 페이지에 초점 주기
-function grabFocus() {
-  if (document.activeElement && document.activeElement !== document.body && document.activeElement !== document.documentElement) return;
-  try { window.focus(); document.body.focus({ preventScroll: true }); } catch (er) {}
-}
-grabFocus();
-window.addEventListener('load', grabFocus);
-window.addEventListener('pageshow', grabFocus);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) grabFocus(); });
-// 소리 버튼 · 첫 동작에서 소리 준비 · 다른 탭이면 멈춤
-{
-  const sb = document.getElementById('snd');
-  // 아직 소리가 안 난 상태에서 🔊 를 처음 누르면 '끄기'가 아니라 그대로 소리 시작
-  window.addEventListener('pointerdown', e => { SND.btnFirst = e.target === sb && SND.want && !SND.unlocked; }, true);
-  sb.addEventListener('pointerdown', e => { e.stopPropagation(); });
-  sb.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (SND.btnFirst) { SND.btnFirst = false; return; } setSound(!SND.want); });
-  setSound(SND.want, false);                         // 열 때는 버튼 모양만 — 소리는 첫 톡·클릭·키에서 시작
-  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, audioInit, true);
-  document.addEventListener('visibilitychange', () => {
-    if (!SND.ctx) return;
-    if (document.hidden) SND.ctx.suspend().catch(() => {}); else if (SND.want && SND.unlocked) SND.ctx.resume().catch(() => {});
-  });
-}
+const KEYS = { j: 'jump', w: 'wave', f: 'flap', e: 'wink', s: 'spin', h: 'hearts', g: 'gift', n: 'catch', c: 'sneeze' };
+window.addEventListener('keydown', e => { const m = KEYS[e.key.toLowerCase()]; if (m && !e.repeat) trigger(m); });
 // 확대·스크롤·당겨서 새로고침 막기
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault());
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
