@@ -312,7 +312,10 @@ if (QS.has('seed')) { let sd = (parseInt(QS.get('seed')) || 1) >>> 0; Math.rando
 const REF = QS.has('ref');                              // 터미널과 같은 120칸 정면 장면(확인용)
 let FREEZE = QS.has('freeze') || REF;
 const STILL = REF;
-let S = REF ? 3 : 2;                                    // 칸 하나 = 가로 S x 세로 2S 점
+const LITE = QS.has('lite');                            // 가벼운 모드(시험용): 점·해상도·장면 수를 줄여요
+const FPS_FIXED = QS.has('fps');
+let FPS = Math.max(10, Math.min(30, parseFloat(QS.get('fps')) || (LITE ? 15 : (window.matchMedia && matchMedia('(pointer: coarse)').matches ? 20 : 30))));   // 폰은 1초에 20번
+let S = REF ? 3 : LITE ? 1 : 2;                                    // 칸 하나 = 가로 S x 세로 2S 점
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const stage = document.getElementById('stage');
 let W, H, dpr, TC, TR, cwD, chD, x0D, y0D, NX, NY, dp, PX0, PY0;
@@ -574,7 +577,7 @@ function setSound(on, user = true) {
 function layout() {
   const rect = stage.getBoundingClientRect();
   W = Math.max(50, rect.width); H = Math.max(50, rect.height);
-  dpr = REF ? 1 : Math.min(window.devicePixelRatio || 1, 3);
+  dpr = REF ? 1 : Math.min(window.devicePixelRatio || 1, LITE ? 1 : 2);   // 폰 3배 화면도 2배까지만(가볍게)
   if (REF) {
     TC = 120; TR = 60; cwD = 8; chD = 16;
     cv.style.width = '960px'; cv.style.height = '960px'; W = H = 960;
@@ -3060,15 +3063,22 @@ const bar = document.getElementById('bar');
 let last = 0, raf = 0, slowFrames = 0;
 function loop(now) {
   raf = requestAnimationFrame(loop);
-  if (now - last < 1000 / 30 - 2) return;
+  if (now - last < 1000 / FPS - 2) return;
   const dt = last ? Math.min((now - last) / 1000, 0.1) : 1 / 30;
   last = now;
   const t0 = performance.now();
   frame(dt);
   // 너무 느린 기기면 점 개수를 줄여요
-  if (performance.now() - t0 > 30 && S > 1 && !REF) { if (++slowFrames > 20) { S = 1; layout(); slowFrames = 0; } }
+  const cost = performance.now() - t0;
+  if (cost > 30 && S > 1 && !REF) { if (++slowFrames > 20) { S = 1; layout(); slowFrames = 0; } }
   else slowFrames = Math.max(0, slowFrames - 1);
+  // 기기가 버거워하면 1초에 그리는 횟수를 줄여서 여유를 남겨요(그래야 소리·녹화가 안 끊겨요)
+  if (!FPS_FIXED && !REF) {
+    costAvg = costAvg * 0.95 + cost * 0.05;
+    if (++costN > 60) { costN = 0; if (costAvg > 0.55 * 1000 / FPS && FPS > 12) FPS = Math.max(12, FPS - 4); }
+  }
 }
+let costAvg = 0, costN = 0;
 function start() { if (!raf) { last = 0; raf = requestAnimationFrame(loop); } }
 function stop() { cancelAnimationFrame(raf); raf = 0; }
 document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
