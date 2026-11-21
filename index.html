@@ -341,15 +341,17 @@ function audioRebuild() {                           // 소리 엔진을 버리�
   const old = SND.ctx; SND.ctx = null; SND.autoSusp = false; SND.bgmOn = false; clearInterval(SND.bgmTimer); VQ.length = 0; SND.unlocked = false;
   try { old.onstatechange = null; old.close(); } catch (e) {}
 }
+const NOSFX = QS.has('nosfx'), FORCE_SR = parseFloat(QS.get('sr')) || 0, NOSESSION = QS.has('nosession');   // 소리 시험용 주소 옵션
 function audioInit() {                              // 사용자 동작(첫 톡·클릭·키) 안에서 불러요
   if (!SND.want) return;
+  if (NOSFX) { bgmElUnlock(); SND.bgmOn = true; SND.duck = 1; bgmElPlay(); return; }   // 시험: 실시간 소리 엔진 없이 배경음악만
   if (SND.ctx && (SND.rebuild || SND.ctx.state === 'closed')) audioRebuild();
   if (SND.ctx) { audioUnlock(); if (SND.bgmOn && SND.duck === 1) bgmElPlay(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}   // 아이폰: 음악 재생 모드(녹화·무음 스위치에 강하게)
+  try { if (navigator.audioSession && !NOSESSION) navigator.audioSession.type = 'playback'; } catch (e) {}   // 아이폰: 음악 재생 모드(녹화·무음 스위치에 강하게)
   bgmElUnlock();
   try {
-    let ac; try { ac = new AC({ latencyHint: 'playback' }); } catch (e) { ac = new AC(); }
+    let ac; try { ac = new AC(FORCE_SR ? { latencyHint: 'playback', sampleRate: FORCE_SR } : { latencyHint: 'playback' }); } catch (e) { ac = new AC(); }
     SND.ctx = ac; SND.rebuild = false;
     ac.onstatechange = () => {                            // iOS: 녹화 시작·전화 등으로 끊기면 다음 터치에서 새로 만들기
       if (ac !== SND.ctx) return;
@@ -571,6 +573,7 @@ function setSound(on, user = true) {
   const b = document.getElementById('snd');
   if (b) { b.textContent = on ? '🔊' : '🔇'; b.setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기'); b.classList.toggle('on', on); }
   if (on) { if (user) { audioInit(); if (SND.ctx) bgmStart(); } }
+  else if (NOSFX) { SND.bgmOn = false; bgmElPause(); }
   else if (SND.ctx) { bgmStop(); SND.ctx.suspend().catch(() => {}); SND.unlocked = false; }
 }
 
